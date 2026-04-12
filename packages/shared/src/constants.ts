@@ -3,8 +3,9 @@ export const SESSION_DEFAULTS = {
   positionVertical: "bottom" as const,
   profanityFilter: true,
   paused: false,
-  maxLines: 3,
 } as const;
+
+export const DISPLAY_MAX_LINES = 3;
 
 export const FONT_SIZE_MIN = 36;
 export const FONT_SIZE_MAX = 120;

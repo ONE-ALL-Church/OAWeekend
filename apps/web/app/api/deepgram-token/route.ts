@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createTemporaryDeepgramKey } from "@/lib/deepgram";
+import { getDeepgramKey } from "@/lib/deepgram";
 
 export async function GET() {
   try {
-    const key = await createTemporaryDeepgramKey();
+    const key = getDeepgramKey();
     return NextResponse.json({ key });
   } catch (error) {
     console.error("Deepgram token error:", error);

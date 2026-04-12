@@ -13,10 +13,12 @@ interface AudioCaptureState {
   isCapturing: boolean;
   audioLevel: number;
   error: string | null;
+  needsPermission: boolean;
 }
 
 interface AudioCaptureActions {
   selectDevice: (deviceId: string) => void;
+  requestPermission: () => Promise<void>;
   startCapture: () => Promise<void>;
   stopCapture: () => void;
   onAudioData: (callback: (pcm: ArrayBuffer) => void) => void;
@@ -28,43 +30,62 @@ export function useAudioCapture(): AudioCaptureState & AudioCaptureActions {
   const [isCapturing, setIsCapturing] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [needsPermission, setNeedsPermission] = useState(true);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const callbackRef = useRef<((pcm: ArrayBuffer) => void) | null>(null);
 
-  // Enumerate audio devices on mount
-  useEffect(() => {
-    async function enumerate() {
-      try {
-        // Request permission first to get device labels
-        const tempStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        tempStream.getTracks().forEach((t) => t.stop());
+  const enumerateDevices = useCallback(async () => {
+    const allDevices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = allDevices
+      .filter((d) => d.kind === "audioinput")
+      .map((d) => ({
+        deviceId: d.deviceId,
+        label: d.label || `Microphone ${d.deviceId.slice(0, 8)}`,
+      }));
 
-        const allDevices = await navigator.mediaDevices.enumerateDevices();
-        const audioInputs = allDevices
-          .filter((d) => d.kind === "audioinput")
-          .map((d) => ({
-            deviceId: d.deviceId,
-            label: d.label || `Microphone ${d.deviceId.slice(0, 8)}`,
-          }));
-
-        setDevices(audioInputs);
-        if (audioInputs.length > 0 && !selectedDeviceId) {
-          setSelectedDeviceId(audioInputs[0].deviceId);
-        }
-      } catch (err) {
-        setError(
-          "Microphone access denied. Please allow audio access in your browser."
-        );
-      }
+    setDevices(audioInputs);
+    if (audioInputs.length > 0) {
+      setSelectedDeviceId(audioInputs[0].deviceId);
     }
+    setNeedsPermission(false);
+  }, []);
 
-    enumerate();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const requestPermission = useCallback(async () => {
+    try {
+      setError(null);
+      const tempStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      tempStream.getTracks().forEach((t) => t.stop());
+      await enumerateDevices();
+    } catch {
+      setError(
+        "Microphone access denied. Please allow audio access in your browser."
+      );
+    }
+  }, [enumerateDevices]);
+
+  // Try to enumerate on mount (works if permission was previously granted)
+  useEffect(() => {
+    navigator.mediaDevices.enumerateDevices().then((allDevices) => {
+      const audioInputs = allDevices.filter(
+        (d) => d.kind === "audioinput" && d.label
+      );
+      if (audioInputs.length > 0) {
+        setDevices(
+          audioInputs.map((d) => ({
+            deviceId: d.deviceId,
+            label: d.label,
+          }))
+        );
+        setSelectedDeviceId(audioInputs[0].deviceId);
+        setNeedsPermission(false);
+      }
+    });
+  }, []);
 
   const selectDevice = useCallback((deviceId: string) => {
     setSelectedDeviceId(deviceId);
@@ -100,12 +121,8 @@ export function useAudioCapture(): AudioCaptureState & AudioCaptureActions {
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
 
-      // Load the AudioWorklet processor
-      const workletUrl = new URL(
-        "../workers/audio-processor.worklet.ts",
-        import.meta.url
-      );
-      await audioContext.audioWorklet.addModule(workletUrl);
+      // Load the AudioWorklet processor from public/
+      await audioContext.audioWorklet.addModule("/audio-processor.worklet.js");
 
       const source = audioContext.createMediaStreamSource(stream);
       const workletNode = new AudioWorkletNode(
@@ -123,7 +140,6 @@ export function useAudioCapture(): AudioCaptureState & AudioCaptureActions {
       };
 
       source.connect(workletNode);
-      // Don't connect to destination — we don't want to play the audio
       workletNode.connect(audioContext.destination);
 
       setIsCapturing(true);
@@ -162,7 +178,9 @@ export function useAudioCapture(): AudioCaptureState & AudioCaptureActions {
     isCapturing,
     audioLevel,
     error,
+    needsPermission,
     selectDevice,
+    requestPermission,
     startCapture,
     stopCapture,
     onAudioData,

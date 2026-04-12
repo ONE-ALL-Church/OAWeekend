@@ -29,7 +29,9 @@ export default function CapturePage({
     isCapturing,
     audioLevel,
     error: audioError,
+    needsPermission,
     selectDevice,
+    requestPermission,
     startCapture,
     stopCapture,
     onAudioData,
@@ -182,19 +184,28 @@ export default function CapturePage({
       )}
 
       {/* Start/Stop Button */}
-      <div className="flex gap-3">
-        {!isCapturing ? (
+      <div className="flex flex-col gap-3">
+        {needsPermission && (
+          <button
+            onClick={requestPermission}
+            className="w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
+          >
+            Grant Microphone Access
+          </button>
+        )}
+        {!needsPermission && !isCapturing && (
           <button
             onClick={startStreaming}
-            disabled={!selectedDeviceId || session.status === "ended"}
-            className="flex-1 rounded-lg bg-green-600 py-3 text-sm font-medium text-white hover:bg-green-500 transition-colors disabled:opacity-50"
+            disabled={!selectedDeviceId}
+            className="w-full rounded-lg bg-green-600 py-3 text-sm font-medium text-white hover:bg-green-500 transition-colors disabled:opacity-50"
           >
             Start Capture
           </button>
-        ) : (
+        )}
+        {isCapturing && (
           <button
             onClick={stopStreaming}
-            className="flex-1 rounded-lg bg-red-600 py-3 text-sm font-medium text-white hover:bg-red-500 transition-colors"
+            className="w-full rounded-lg bg-red-600 py-3 text-sm font-medium text-white hover:bg-red-500 transition-colors"
           >
             Stop &amp; End Session
           </button>
