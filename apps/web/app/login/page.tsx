@@ -1,4 +1,6 @@
-import { signIn } from "@/auth";
+"use client";
+
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
   return (
@@ -10,19 +12,12 @@ export default function LoginPage() {
             Sign in with your ONE&amp;ALL account
           </p>
         </div>
-        <form
-          action={async () => {
-            "use server";
-            await signIn("rock", { redirectTo: "/operator" });
-          }}
+        <button
+          onClick={() => signIn("rock", { callbackUrl: "/operator" })}
+          className="w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-700 transition-colors"
         >
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-700 transition-colors"
-          >
-            Sign in with ONE&amp;ALL
-          </button>
-        </form>
+          Sign in with ONE&amp;ALL
+        </button>
       </div>
     </main>
   );
