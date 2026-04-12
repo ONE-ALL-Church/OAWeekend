@@ -14,7 +14,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       token: "https://www.oneandall.church/Auth/Token",
       userinfo: "https://www.oneandall.church/Auth/UserInfo",
-      checks: ["pkce", "state"],
+      checks: ["state"],
       profile(profile) {
         return {
           id: profile.sub,
