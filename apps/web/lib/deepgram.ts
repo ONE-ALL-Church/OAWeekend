@@ -8,5 +8,5 @@
 export function getDeepgramKey(): string {
   const apiKey = process.env.DEEPGRAM_API_KEY;
   if (!apiKey) throw new Error("DEEPGRAM_API_KEY not configured");
-  return apiKey;
+  return apiKey.trim();
 }
