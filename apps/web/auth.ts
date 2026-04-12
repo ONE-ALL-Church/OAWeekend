@@ -5,13 +5,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     {
       id: "rock",
       name: "ONE&ALL",
-      type: "oidc",
-      issuer: "https://www.oneandall.church/",
+      type: "oauth",
       clientId: process.env.ROCK_CLIENT_ID,
       clientSecret: process.env.ROCK_CLIENT_SECRET,
-      wellKnown:
-        "https://admin.oneandall.church/.well-known/openid-configuration",
-      authorization: { params: { scope: "openid email profile" } },
+      authorization: {
+        url: "https://www.oneandall.church/Auth/Authorize",
+        params: { scope: "openid email profile" },
+      },
+      token: "https://www.oneandall.church/Auth/Token",
+      userinfo: "https://www.oneandall.church/Auth/UserInfo",
+      checks: ["pkce", "state"],
       profile(profile) {
         return {
           id: profile.sub,
@@ -30,10 +33,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         pathname.startsWith("/capture") ||
         pathname === "/api/deepgram-token";
 
-      // Display pages are always public
       if (!isProtected) return true;
-
-      // Protected pages require login
       return !!session?.user;
     },
   },
