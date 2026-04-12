@@ -41,4 +41,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
   },
   trustHost: true,
+  debug: process.env.NODE_ENV !== "production",
 });
