@@ -1,0 +1,13 @@
+{
+  "name": "oaweekend",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check"
+  },
+  "devDependencies": {
+    "turbo": "^2"
+  }
+}
