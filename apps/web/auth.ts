@@ -5,16 +5,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     {
       id: "rock",
       name: "ONE&ALL",
-      type: "oauth",
-      clientId: process.env.ROCK_CLIENT_ID,
-      clientSecret: process.env.ROCK_CLIENT_SECRET,
-      authorization: {
-        url: "https://www.oneandall.church/Auth/Authorize",
-        params: { scope: "openid email profile" },
-      },
-      token: "https://www.oneandall.church/Auth/Token",
-      userinfo: "https://www.oneandall.church/Auth/UserInfo",
-      checks: ["state"],
+      type: "oidc",
+      issuer: "https://www.oneandall.church",
+      clientId: process.env.ROCK_CLIENT_ID!,
+      clientSecret: process.env.ROCK_CLIENT_SECRET!,
+      authorization: { params: { scope: "openid email profile" } },
       profile(profile) {
         return {
           id: profile.sub,
