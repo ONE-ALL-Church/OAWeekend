@@ -3,16 +3,20 @@ import { z } from "zod";
 const ROCK_BASE_URL = process.env.ROCK_BASE_URL;
 const ROCK_API_KEY = process.env.ROCK_API_KEY;
 
+// --- Zod Schemas ---
+
 const CampusSchema = z.object({
   Id: z.number(),
   Name: z.string(),
   Guid: z.string(),
+  ShortCode: z.string().nullable().optional(),
+  IsActive: z.boolean().optional(),
 });
 
-const ScheduleSchema = z.object({
+const DefinedValueSchema = z.object({
   Id: z.number(),
-  Name: z.string(),
-  iCalendarContent: z.string().nullable().optional(),
+  Value: z.string(),
+  Guid: z.string(),
 });
 
 const ContentChannelItemSchema = z.object({
@@ -20,11 +24,13 @@ const ContentChannelItemSchema = z.object({
   Title: z.string(),
   StartDateTime: z.string().nullable().optional(),
   Status: z.number(),
+  AttributeValues: z.record(z.object({ Value: z.string() })).optional(),
 });
 
 export type RockCampus = z.infer<typeof CampusSchema>;
-export type RockSchedule = z.infer<typeof ScheduleSchema>;
 export type RockContentChannelItem = z.infer<typeof ContentChannelItemSchema>;
+
+// --- Fetch helper ---
 
 async function rockFetch<T>(
   path: string,
@@ -40,7 +46,7 @@ async function rockFetch<T>(
       "Authorization-Token": ROCK_API_KEY,
       Accept: "application/json",
     },
-    next: { revalidate: 300 }, // Cache for 5 minutes
+    next: { revalidate: 300 },
   });
 
   if (!res.ok) {
@@ -51,26 +57,53 @@ async function rockFetch<T>(
   return z.array(schema).parse(data);
 }
 
+// --- Public API ---
+
 export async function getCampuses(): Promise<RockCampus[]> {
-  return rockFetch("/Campuses?$select=Id,Name,Guid", CampusSchema);
+  return rockFetch(
+    "/Campuses?$select=Id,Name,Guid,ShortCode,IsActive&$filter=IsActive eq true",
+    CampusSchema
+  );
 }
 
-export async function getTodaysServices(
-  campusId?: number
-): Promise<RockSchedule[]> {
-  let path = "/Schedules?$select=Id,Name,iCalendarContent&$top=20";
-  if (campusId) {
-    path += `&$filter=CategoryId eq ${campusId}`;
-  }
-  return rockFetch(path, ScheduleSchema);
+export interface WeekendService {
+  id: number;
+  title: string;
+  startDateTime: string | null;
+  speaker: string | null;
+  contentChannelItemId: number;
 }
 
-export async function getActiveSermonItems(): Promise<
-  RockContentChannelItem[]
-> {
+export async function getWeekendServices(): Promise<WeekendService[]> {
   const channelGuid = process.env.ROCK_CONTENT_CHANNEL_GUID;
   if (!channelGuid) return [];
 
-  const path = `/ContentChannelItems?$filter=ContentChannel/Guid eq guid'${channelGuid}' and Status eq 2&$select=Id,Title,StartDateTime,Status&$top=10&$orderby=StartDateTime desc`;
-  return rockFetch(path, ContentChannelItemSchema);
+  const items = await rockFetch(
+    `/ContentChannelItems?$filter=ContentChannel/Guid eq guid'${channelGuid}' and Status eq 2&$select=Id,Title,StartDateTime,Status&$top=10&$orderby=StartDateTime desc&loadAttributes=simple`,
+    ContentChannelItemSchema
+  );
+
+  // Resolve speaker DefinedValue GUIDs to names
+  const services: WeekendService[] = [];
+  for (const item of items) {
+    let speaker: string | null = null;
+    const speakerGuid = item.AttributeValues?.Speaker?.Value;
+    if (speakerGuid && speakerGuid.length > 10) {
+      const dvs = await rockFetch(
+        `/DefinedValues?$filter=Guid eq guid'${speakerGuid}'&$select=Id,Value,Guid&$top=1`,
+        DefinedValueSchema
+      ).catch(() => []);
+      if (dvs.length > 0) speaker = dvs[0].Value;
+    }
+
+    services.push({
+      id: item.Id,
+      title: item.Title,
+      startDateTime: item.StartDateTime ?? null,
+      speaker,
+      contentChannelItemId: item.Id,
+    });
+  }
+
+  return services;
 }
