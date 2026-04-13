@@ -89,9 +89,10 @@ export async function getWeekendServices(): Promise<WeekendService[]> {
     ContentChannelItemSchema
   );
 
-  // Filter to approved (Status 2) items in code since OData $select + Status filter conflicts
+  // Include both Approved (2) and PendingApproval (1) items — pending items
+  // are typically being prepped for the upcoming weekend service
   return items
-    .filter((item) => item.Status === 2)
+    .filter((item) => item.Status === 1 || item.Status === 2)
     .map((item) => ({
       id: item.Id,
       title: item.Title,
