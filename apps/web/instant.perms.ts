@@ -29,6 +29,14 @@ const rules = {
         delete: "auth.id != null",
       },
     },
+    displays: {
+      allow: {
+        read: "true",
+        create: "auth.id != null",
+        update: "true",
+        delete: "auth.id != null",
+      },
+    },
   },
 };
 

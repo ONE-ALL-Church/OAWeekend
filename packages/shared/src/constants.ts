@@ -30,3 +30,18 @@ export const DEEPGRAM_ENCODING = "linear16";
 export const RECONNECT_MAX_RETRIES = 5;
 export const RECONNECT_BASE_DELAY_MS = 1000;
 export const AUDIO_BUFFER_MAX_SECONDS = 10;
+
+export const DISPLAY_DEFAULTS = {
+  theme: "dark" as const,
+  fontSize: 64,
+  positionVertical: "bottom" as const,
+  maxLines: 3,
+} as const;
+
+export const DISPLAY_THEMES = [
+  { value: "dark", label: "Dark (black bg, white text)" },
+  { value: "light", label: "Light (white bg, black text)" },
+] as const;
+
+export const HEARTBEAT_INTERVAL_MS = 30_000;
+export const DISPLAY_ONLINE_THRESHOLD_MS = 90_000;

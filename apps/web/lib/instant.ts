@@ -17,3 +17,5 @@ export type SessionWithTranscripts = InstaQLEntity<
   "sessions",
   { transcriptEvents: {} }
 >;
+export type Display = InstaQLEntity<AppSchema, "displays">;
+export type DisplayWithSession = InstaQLEntity<AppSchema, "displays", { activeSession: {} }>;

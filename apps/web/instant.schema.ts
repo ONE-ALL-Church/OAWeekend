@@ -34,6 +34,19 @@ const _schema = i.schema({
       boost: i.number(),
       active: i.boolean(),
     }),
+    displays: i.entity({
+      name: i.string(),
+      slug: i.string().unique().indexed(),
+      campusId: i.string().indexed(),
+      campusName: i.string(),
+      activeSessionId: i.string().optional(),
+      theme: i.string(),
+      fontSize: i.number(),
+      positionVertical: i.string(),
+      maxLines: i.number(),
+      lastSeenAt: i.number().optional(),
+      createdAt: i.number().indexed(),
+    }),
   },
   links: {
     sessionTranscriptEvents: {
@@ -58,6 +71,18 @@ const _schema = i.schema({
         on: "$users",
         has: "many",
         label: "createdSessions",
+      },
+    },
+    displaySession: {
+      forward: {
+        on: "displays",
+        has: "one",
+        label: "activeSession",
+      },
+      reverse: {
+        on: "sessions",
+        has: "many",
+        label: "displays",
       },
     },
   },

@@ -36,3 +36,20 @@ export interface Keyterm {
   boost: number;
   active: boolean;
 }
+
+export type DisplayTheme = "dark" | "light";
+
+export interface Display {
+  id: string;
+  name: string;
+  slug: string;
+  campusId: string;
+  campusName: string;
+  activeSessionId: string | null;
+  theme: DisplayTheme;
+  fontSize: number;
+  positionVertical: PositionVertical;
+  maxLines: number;
+  lastSeenAt: number | null;
+  createdAt: number;
+}
