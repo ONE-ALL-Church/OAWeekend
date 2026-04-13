@@ -1,17 +1,11 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+"use client";
 
-export default async function LoginPage() {
-  // If already logged in, go to operator
-  const session = await auth();
-  if (session?.user) {
-    redirect("/operator");
-  }
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-  // Get CSRF token for the form
-  const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
-  const csrfRes = await fetch(`${baseUrl}/api/auth/csrf`);
-  const { csrfToken } = await csrfRes.json();
+function LoginContent() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
 
   return (
     <main className="flex flex-1 items-center justify-center p-8">
@@ -22,17 +16,26 @@ export default async function LoginPage() {
             Sign in with your ONE&amp;ALL account
           </p>
         </div>
-        <form method="POST" action="/api/auth/signin/rock">
-          <input type="hidden" name="csrfToken" value={csrfToken} />
-          <input type="hidden" name="callbackUrl" value="/operator" />
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-700 transition-colors"
-          >
-            Sign in with ONE&amp;ALL
-          </button>
-        </form>
+        {error && (
+          <p className="text-sm text-red-600">
+            Sign in failed ({error}). Please try again.
+          </p>
+        )}
+        <a
+          href="/api/auth/login"
+          className="block w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-700 transition-colors"
+        >
+          Sign in with ONE&amp;ALL
+        </a>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div />}>
+      <LoginContent />
+    </Suspense>
   );
 }

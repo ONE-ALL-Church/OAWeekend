@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 
-export async function proxy(request: NextRequest) {
-  const session = await auth();
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-  if (session?.user) {
+  const isProtected =
+    pathname.startsWith("/operator") ||
+    pathname.startsWith("/capture") ||
+    pathname === "/api/deepgram-token";
+
+  if (!isProtected) return NextResponse.next();
+
+  // Check for InstantDB auth token cookie
+  const token = request.cookies.get("instant_token");
+  if (token?.value) {
     return NextResponse.next();
   }
 
   const loginUrl = new URL("/login", request.url);
-  loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
+  loginUrl.searchParams.set("redirect", pathname);
   return NextResponse.redirect(loginUrl);
 }
 
