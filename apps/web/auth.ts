@@ -6,7 +6,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       id: "rock",
       name: "ONE&ALL",
       type: "oidc",
-      issuer: "https://www.oneandall.church",
+      issuer: "https://www.oneandall.church/",
       clientId: process.env.ROCK_CLIENT_ID!,
       clientSecret: process.env.ROCK_CLIENT_SECRET!,
       authorization: { params: { scope: "openid email profile" } },
