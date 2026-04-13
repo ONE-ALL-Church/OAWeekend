@@ -6,6 +6,7 @@ import { Suspense } from "react";
 function LoginContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const detail = searchParams.get("detail");
 
   return (
     <main className="flex flex-1 items-center justify-center p-8">
@@ -17,9 +18,14 @@ function LoginContent() {
           </p>
         </div>
         {error && (
-          <p className="text-sm text-red-600">
-            Sign in failed ({error}). Please try again.
-          </p>
+          <div className="space-y-1">
+            <p className="text-sm text-red-600">
+              Sign in failed ({error}). Please try again.
+            </p>
+            {detail && (
+              <p className="text-xs text-red-400 break-all">{detail}</p>
+            )}
+          </div>
         )}
         <a
           href="/api/auth/login"

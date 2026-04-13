@@ -51,9 +51,9 @@ export async function GET(request: NextRequest) {
 
     if (!tokenRes.ok) {
       const text = await tokenRes.text();
-      console.error("Token exchange failed:", tokenRes.status, text);
+      const detail = encodeURIComponent(`${tokenRes.status}: ${text.slice(0, 300)}`);
       return NextResponse.redirect(
-        new URL("/login?error=token_exchange", request.url)
+        new URL(`/login?error=token_exchange&detail=${detail}`, request.url)
       );
     }
 
