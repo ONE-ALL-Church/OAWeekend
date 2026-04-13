@@ -13,12 +13,10 @@ const CampusSchema = z.object({
   IsActive: z.boolean().optional(),
 });
 
-const AttributeValueSchema = z
-  .object({
-    Value: z.string().nullable().optional().default(""),
-    ValueFormatted: z.string().nullable().optional().default(""),
-  })
-  .passthrough();
+const AttributeValueSchema = z.object({
+  value: z.string().nullable().optional().default(""),
+  textValue: z.string().nullable().optional().default(""),
+});
 
 const ContentChannelItemSchema = z
   .object({
@@ -26,29 +24,43 @@ const ContentChannelItemSchema = z
     Title: z.string(),
     StartDateTime: z.string().nullable().optional(),
     Status: z.number(),
-    AttributeValues: z.record(AttributeValueSchema).optional(),
   })
   .passthrough();
 
 export type RockCampus = z.infer<typeof CampusSchema>;
 export type RockContentChannelItem = z.infer<typeof ContentChannelItemSchema>;
 
-// --- Fetch helper ---
+// --- V2 Fetch helpers ---
 
-async function rockFetch<T>(
-  path: string,
+function rockHeaders(): Record<string, string> {
+  return {
+    "Authorization-Token": ROCK_API_KEY!,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+}
+
+/** POST /api/v2/models/{entity}/search with dynamic LINQ query */
+async function rockSearch<T>(
+  entity: string,
+  query: {
+    where?: string;
+    sort?: string;
+    limit?: number;
+    offset?: number;
+    select?: string;
+  },
   schema: z.ZodType<T>
 ): Promise<T[]> {
   if (!ROCK_BASE_URL || !ROCK_API_KEY) {
     throw new Error("Rock RMS not configured");
   }
 
-  const url = `${ROCK_BASE_URL}/api${path}`;
+  const url = `${ROCK_BASE_URL}/api/v2/models/${entity}/search`;
   const res = await fetch(url, {
-    headers: {
-      "Authorization-Token": ROCK_API_KEY,
-      Accept: "application/json",
-    },
+    method: "POST",
+    headers: rockHeaders(),
+    body: JSON.stringify(query),
     next: { revalidate: 300 },
   });
 
@@ -61,11 +73,46 @@ async function rockFetch<T>(
   return z.array(schema).parse(data);
 }
 
+/** GET /api/v2/models/{entity}/{id}/attributevalues */
+async function rockAttributeValues(
+  entity: string,
+  id: number
+): Promise<Record<string, { value: string; textValue: string }>> {
+  if (!ROCK_BASE_URL || !ROCK_API_KEY) {
+    throw new Error("Rock RMS not configured");
+  }
+
+  const url = `${ROCK_BASE_URL}/api/v2/models/${entity}/${id}/attributevalues`;
+  const res = await fetch(url, {
+    headers: rockHeaders(),
+    next: { revalidate: 300 },
+  });
+
+  if (!res.ok) return {};
+
+  const data = await res.json();
+  const parsed: Record<string, { value: string; textValue: string }> = {};
+  for (const [key, val] of Object.entries(data)) {
+    const result = AttributeValueSchema.safeParse(val);
+    if (result.success) {
+      parsed[key] = {
+        value: result.data.value ?? "",
+        textValue: result.data.textValue ?? "",
+      };
+    }
+  }
+  return parsed;
+}
+
 // --- Public API ---
 
 export async function getCampuses(): Promise<RockCampus[]> {
-  return rockFetch(
-    "/Campuses?$select=Id,Name,Guid,ShortCode,IsActive&$filter=IsActive eq true",
+  return rockSearch(
+    "campuses",
+    {
+      where: "IsActive == true",
+      select: "new { Id, Name, Guid, ShortCode, IsActive }",
+    },
     CampusSchema
   );
 }
@@ -82,22 +129,34 @@ export async function getWeekendServices(): Promise<WeekendService[]> {
   const channelGuid = process.env.ROCK_CONTENT_CHANNEL_GUID;
   if (!channelGuid) return [];
 
-  // Note: Don't use $select with loadAttributes — Rock returns an OData type error.
-  // Speaker name comes from AttributeValues.Speaker.ValueFormatted (no extra fetch needed).
-  const items = await rockFetch(
-    `/ContentChannelItems?$filter=ContentChannel/Guid eq guid'${channelGuid}'&$top=10&$orderby=StartDateTime desc&loadAttributes=simple`,
+  const items = await rockSearch(
+    "contentchannelitems",
+    {
+      where: `ContentChannel.Guid == guid("${channelGuid}")`,
+      sort: "StartDateTime desc",
+      limit: 10,
+    },
     ContentChannelItemSchema
   );
 
-  // Include both Approved (2) and PendingApproval (1) items — pending items
-  // are typically being prepped for the upcoming weekend service
-  return items
-    .filter((item) => item.Status === 1 || item.Status === 2)
-    .map((item) => ({
-      id: item.Id,
-      title: item.Title,
-      startDateTime: item.StartDateTime ?? null,
-      speaker: item.AttributeValues?.Speaker?.ValueFormatted || null,
-      contentChannelItemId: item.Id,
-    }));
+  // Include both Approved (2) and PendingApproval (1) items
+  const filtered = items.filter(
+    (item) => item.Status === 1 || item.Status === 2
+  );
+
+  // Fetch attribute values (speaker name) for each item in parallel
+  const results = await Promise.all(
+    filtered.map(async (item) => {
+      const attrs = await rockAttributeValues("contentchannelitems", item.Id);
+      return {
+        id: item.Id,
+        title: item.Title,
+        startDateTime: item.StartDateTime ?? null,
+        speaker: attrs.Speaker?.textValue || null,
+        contentChannelItemId: item.Id,
+      };
+    })
+  );
+
+  return results;
 }
