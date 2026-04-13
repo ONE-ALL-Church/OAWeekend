@@ -26,7 +26,7 @@ export function useSessions() {
   const { isLoading, error, data } = db.useQuery({
     sessions: {
       $: {
-        order: { serverCreatedAt: "desc" },
+        order: { startedAt: "desc" },
       },
     },
   });

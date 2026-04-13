@@ -1,29 +1,32 @@
 import { i } from "@instantdb/react";
 
-const schema = i.schema({
+const _schema = i.schema({
   entities: {
+    $users: i.entity({
+      email: i.string().unique().indexed(),
+    }),
     sessions: i.entity({
-      campusId: i.string(),
+      campusId: i.string().indexed(),
       campusName: i.string(),
       scheduleId: i.string().optional(),
       sermonTitle: i.string().optional(),
       speakerName: i.string().optional(),
       rockContentChannelItemId: i.number().optional(),
-      startedAt: i.number(),
+      startedAt: i.number().indexed(),
       endedAt: i.number().optional(),
-      status: i.string(), // 'idle' | 'live' | 'ended' | 'archived'
+      status: i.string().indexed(), // 'idle' | 'live' | 'ended' | 'archived'
       fontSize: i.number(),
       positionVertical: i.string(), // 'top' | 'middle' | 'bottom'
       profanityFilter: i.boolean(),
       paused: i.boolean(),
     }),
     transcriptEvents: i.entity({
-      kind: i.string(), // 'interim' | 'final'
+      kind: i.string().indexed(), // 'interim' | 'final'
       text: i.string(),
       startMs: i.number(),
       endMs: i.number(),
-      sequence: i.number(),
-      createdAt: i.number(),
+      sequence: i.number().indexed(),
+      createdAt: i.number().indexed(),
     }),
     keyterms: i.entity({
       term: i.string(),
@@ -42,6 +45,18 @@ const schema = i.schema({
         on: "transcriptEvents",
         has: "one",
         label: "session",
+      },
+    },
+    sessionCreator: {
+      forward: {
+        on: "sessions",
+        has: "one",
+        label: "creator",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "createdSessions",
       },
     },
   },
@@ -63,5 +78,9 @@ const schema = i.schema({
   },
 });
 
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export type { AppSchema };
 export default schema;
-export type Schema = typeof schema;

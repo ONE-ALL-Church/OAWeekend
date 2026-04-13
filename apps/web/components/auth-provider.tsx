@@ -4,17 +4,16 @@ import { useEffect } from "react";
 import db from "@/lib/instant";
 
 /**
- * Reads the instant_token cookie and signs the user into InstantDB.
- * This runs once on mount after the OAuth callback sets the cookie.
+ * Reads the instant_token cookie (set by the OAuth callback) and
+ * signs the user into InstantDB. Once signed in, db.useAuth()
+ * returns the user everywhere in the app.
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { isLoading, user, error } = db.useAuth();
+  const { user } = db.useAuth();
 
   useEffect(() => {
-    // If already authenticated, nothing to do
     if (user) return;
 
-    // Check for token cookie from OAuth callback
     const token = getCookie("instant_token");
     if (token) {
       db.auth.signInWithToken(token);
@@ -22,10 +21,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   return <>{children}</>;
-}
-
-export function useUser() {
-  return db.useAuth();
 }
 
 function getCookie(name: string): string | null {

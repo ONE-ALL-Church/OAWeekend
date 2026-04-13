@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import db from "@/lib/instant";
 import { useSessions } from "@/hooks/use-session";
 import { SessionPicker } from "@/components/session-picker";
 import { KeytermManager } from "@/components/keyterm-manager";
 
 export default function OperatorPage() {
+  const { user } = db.useAuth();
   const { sessions, isLoading } = useSessions();
 
   const activeSessions = sessions.filter(
@@ -17,11 +19,28 @@ export default function OperatorPage() {
 
   return (
     <main className="flex flex-1 flex-col p-6 max-w-4xl mx-auto w-full gap-8">
-      <div>
-        <h1 className="text-2xl font-bold">Operator Dashboard</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Manage live captioning sessions for ONE&amp;ALL weekend services
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Operator Dashboard</h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            Manage live captioning sessions for ONE&amp;ALL weekend services
+          </p>
+        </div>
+        {user && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-neutral-500">{user.email}</span>
+            <button
+              onClick={() => {
+                db.auth.signOut();
+                document.cookie = "instant_token=; Max-Age=0; Path=/";
+                window.location.href = "/login";
+              }}
+              className="text-sm text-neutral-400 hover:text-neutral-600"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
