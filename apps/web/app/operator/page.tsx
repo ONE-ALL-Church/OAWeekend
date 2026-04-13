@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import db from "@/lib/instant";
+import type { Session } from "@/lib/instant";
 import { useSessions } from "@/hooks/use-session";
 import { SessionPicker } from "@/components/session-picker";
 import { KeytermManager } from "@/components/keyterm-manager";
@@ -92,16 +93,16 @@ export default function OperatorPage() {
   );
 }
 
-function SessionCard({ session }: { session: Record<string, unknown> }) {
-  const statusColor = {
+function SessionCard({ session }: { session: Session }) {
+  const statusColor: Record<string, string> = {
     idle: "bg-neutral-400",
     live: "bg-green-500 animate-pulse",
     ended: "bg-red-400",
     archived: "bg-blue-400",
-  }[(session.status as string) ?? "idle"];
+  };
 
   const startTime = session.startedAt
-    ? new Date(session.startedAt as number).toLocaleTimeString()
+    ? new Date(session.startedAt).toLocaleTimeString()
     : "";
 
   return (
@@ -109,19 +110,20 @@ function SessionCard({ session }: { session: Record<string, unknown> }) {
       href={`/operator/${session.id}`}
       className="flex items-center gap-3 rounded-lg border border-neutral-200 p-3 hover:bg-neutral-50 transition-colors"
     >
-      <div className={`w-2 h-2 rounded-full ${statusColor}`} />
+      <div
+        className={`w-2 h-2 rounded-full ${statusColor[session.status] ?? "bg-neutral-400"}`}
+      />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">
-          {(session.campusName as string) ?? "Unknown"} &mdash;{" "}
-          {(session.sermonTitle as string) ?? "Untitled"}
+          {session.campusName ?? "Unknown"} &mdash;{" "}
+          {session.sermonTitle ?? "Untitled"}
         </p>
         <p className="text-xs text-neutral-400">
-          {(session.speakerName as string) ?? "Unknown speaker"} &middot;{" "}
-          {startTime}
+          {session.speakerName ?? "Unknown speaker"} &middot; {startTime}
         </p>
       </div>
       <span className="text-xs capitalize text-neutral-400">
-        {session.status as string}
+        {session.status}
       </span>
     </Link>
   );

@@ -9,9 +9,7 @@ export function useSession(sessionId: string) {
     },
   });
 
-  const session = data?.sessions?.[0] ?? null;
-
-  return { session, isLoading, error };
+  return { session: data?.sessions?.[0] ?? null, isLoading, error };
 }
 
 export function useSessionUpdate(sessionId: string) {
@@ -25,9 +23,7 @@ export function useSessionUpdate(sessionId: string) {
 export function useSessions() {
   const { isLoading, error, data } = db.useQuery({
     sessions: {
-      $: {
-        order: { startedAt: "desc" },
-      },
+      $: { order: { startedAt: "desc" } },
     },
   });
 

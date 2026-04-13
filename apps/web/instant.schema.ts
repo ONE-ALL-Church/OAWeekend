@@ -14,14 +14,14 @@ const _schema = i.schema({
       rockContentChannelItemId: i.number().optional(),
       startedAt: i.number().indexed(),
       endedAt: i.number().optional(),
-      status: i.string().indexed(), // 'idle' | 'live' | 'ended' | 'archived'
+      status: i.string().indexed(),
       fontSize: i.number(),
-      positionVertical: i.string(), // 'top' | 'middle' | 'bottom'
+      positionVertical: i.string(),
       profanityFilter: i.boolean(),
       paused: i.boolean(),
     }),
     transcriptEvents: i.entity({
-      kind: i.string().indexed(), // 'interim' | 'final'
+      kind: i.string().indexed(),
       text: i.string(),
       startMs: i.number(),
       endMs: i.number(),
@@ -63,7 +63,7 @@ const _schema = i.schema({
   rooms: {
     captions: {
       presence: i.entity({
-        role: i.string(), // 'capture' | 'display' | 'operator'
+        role: i.string(),
       }),
       topics: {
         transcript: i.entity({
