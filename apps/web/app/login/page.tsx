@@ -24,7 +24,9 @@ function LoginContent() {
           {error && (
             <div className="rounded-[--radius-badge] bg-red-50 border border-red-100 p-3 space-y-1">
               <p className="text-sm text-red-700 font-medium">
-                Sign in failed ({error})
+                {error === "unauthorized"
+                  ? "Access denied. Your account is not authorized to use this application."
+                  : `Sign in failed (${error})`}
               </p>
               {detail && (
                 <p className="text-xs text-red-500 break-all">{detail}</p>
