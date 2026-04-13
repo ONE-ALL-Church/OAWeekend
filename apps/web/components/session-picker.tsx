@@ -73,7 +73,8 @@ export function SessionPicker() {
   }
 
   const hasCampuses = campuses.length > 0;
-  const hasServices = services.length > 0;
+  const recentServices = services.slice(0, 3);
+  const hasServices = recentServices.length > 0;
 
   return (
     <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-6 shadow-[--shadow-card] space-y-5">
@@ -92,10 +93,10 @@ export function SessionPicker() {
       {hasServices && (
         <div className="space-y-2">
           <label className="text-xs font-medium text-oa-black-700">
-            Today&apos;s Services
+            Recent Messages
           </label>
           <div className="space-y-1.5">
-            {services.map((svc) => {
+            {recentServices.map((svc) => {
               const isSelected = selectedServiceId === svc.id;
               const time = svc.startDateTime
                 ? new Date(svc.startDateTime).toLocaleDateString(undefined, {
