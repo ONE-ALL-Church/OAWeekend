@@ -9,6 +9,7 @@ import {
   useRockData,
   type RockServiceClient,
 } from "@/hooks/use-rock-data";
+import { useDisplays, setDisplaySession } from "@/hooks/use-displays";
 
 export function SessionPicker() {
   const router = useRouter();
@@ -23,11 +24,19 @@ export function SessionPicker() {
     SESSION_DEFAULTS.maxDurationMinutes
   );
   const [creating, setCreating] = useState(false);
+  const { displays } = useDisplays();
+  const [selectedDisplayId, setSelectedDisplayId] = useState<string>("");
 
   // When campuses load, default to first one
   if (campuses.length > 0 && !campusId) {
-    setCampusId(String(campuses[0].id));
+    const firstId = String(campuses[0].id);
+    setCampusId(firstId);
     setCampusName(campuses[0].name);
+    const campusDisplays = displays.filter((d) => d.campusId === firstId);
+    if (campusDisplays.length > 0 && !selectedDisplayId) {
+      const sorted = [...campusDisplays].sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0));
+      setSelectedDisplayId(sorted[0].id);
+    }
   }
 
   function selectService(service: RockServiceClient) {
@@ -46,6 +55,14 @@ export function SessionPicker() {
     setCampusId(value);
     const c = campuses.find((c) => String(c.id) === value);
     setCampusName(c?.name ?? value);
+    // Auto-select most recent display for this campus
+    const campusDisplays = displays.filter((d) => d.campusId === value);
+    if (campusDisplays.length > 0) {
+      const sorted = [...campusDisplays].sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0));
+      setSelectedDisplayId(sorted[0].id);
+    } else {
+      setSelectedDisplayId("");
+    }
   }
 
   async function createSession() {
@@ -53,7 +70,7 @@ export function SessionPicker() {
     setCreating(true);
 
     const sessionId = id();
-    db.transact(
+    await db.transact(
       db.tx.sessions[sessionId].update({
         campusId: campusId || "manual",
         campusName,
@@ -68,6 +85,10 @@ export function SessionPicker() {
         maxDurationMinutes,
       })
     );
+
+    if (selectedDisplayId) {
+      await setDisplaySession(selectedDisplayId, sessionId);
+    }
 
     router.push(`/operator/${sessionId}`);
   }
@@ -175,6 +196,23 @@ export function SessionPicker() {
             />
           )}
         </Field>
+
+        {displays.length > 0 && (
+          <Field label="Display" hint="Which screen to push captions to">
+            <select
+              value={selectedDisplayId}
+              onChange={(e) => setSelectedDisplayId(e.target.value)}
+              className="w-full rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-3 py-2.5 text-sm focus:border-oa-yellow-500 focus:outline-none transition-colors"
+            >
+              <option value="">None (manual URL)</option>
+              {displays.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} ({d.campusName})
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         <Field label="Sermon Title" optional>
           <input
