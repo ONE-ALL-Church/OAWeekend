@@ -13,10 +13,9 @@ const CampusSchema = z.object({
   IsActive: z.boolean().optional(),
 });
 
-const DefinedValueSchema = z.object({
-  Id: z.number(),
-  Value: z.string(),
-  Guid: z.string(),
+const AttributeValueSchema = z.object({
+  Value: z.string().optional().default(""),
+  ValueFormatted: z.string().optional().default(""),
 });
 
 const ContentChannelItemSchema = z.object({
@@ -24,7 +23,7 @@ const ContentChannelItemSchema = z.object({
   Title: z.string(),
   StartDateTime: z.string().nullable().optional(),
   Status: z.number(),
-  AttributeValues: z.record(z.object({ Value: z.string() })).optional(),
+  AttributeValues: z.record(AttributeValueSchema).optional(),
 });
 
 export type RockCampus = z.infer<typeof CampusSchema>;
@@ -50,7 +49,8 @@ async function rockFetch<T>(
   });
 
   if (!res.ok) {
-    throw new Error(`Rock API error: ${res.status} ${res.statusText}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`Rock API error: ${res.status} ${text.slice(0, 200)}`);
   }
 
   const data = await res.json();
@@ -78,32 +78,21 @@ export async function getWeekendServices(): Promise<WeekendService[]> {
   const channelGuid = process.env.ROCK_CONTENT_CHANNEL_GUID;
   if (!channelGuid) return [];
 
+  // Note: Don't use $select with loadAttributes — Rock returns an OData type error.
+  // Speaker name comes from AttributeValues.Speaker.ValueFormatted (no extra fetch needed).
   const items = await rockFetch(
-    `/ContentChannelItems?$filter=ContentChannel/Guid eq guid'${channelGuid}' and Status eq 2&$select=Id,Title,StartDateTime,Status&$top=10&$orderby=StartDateTime desc&loadAttributes=simple`,
+    `/ContentChannelItems?$filter=ContentChannel/Guid eq guid'${channelGuid}'&$top=10&$orderby=StartDateTime desc&loadAttributes=simple`,
     ContentChannelItemSchema
   );
 
-  // Resolve speaker DefinedValue GUIDs to names
-  const services: WeekendService[] = [];
-  for (const item of items) {
-    let speaker: string | null = null;
-    const speakerGuid = item.AttributeValues?.Speaker?.Value;
-    if (speakerGuid && speakerGuid.length > 10) {
-      const dvs = await rockFetch(
-        `/DefinedValues?$filter=Guid eq guid'${speakerGuid}'&$select=Id,Value,Guid&$top=1`,
-        DefinedValueSchema
-      ).catch(() => []);
-      if (dvs.length > 0) speaker = dvs[0].Value;
-    }
-
-    services.push({
+  // Filter to approved (Status 2) items in code since OData $select + Status filter conflicts
+  return items
+    .filter((item) => item.Status === 2)
+    .map((item) => ({
       id: item.Id,
       title: item.Title,
       startDateTime: item.StartDateTime ?? null,
-      speaker,
+      speaker: item.AttributeValues?.Speaker?.ValueFormatted || null,
       contentChannelItemId: item.Id,
-    });
-  }
-
-  return services;
+    }));
 }
