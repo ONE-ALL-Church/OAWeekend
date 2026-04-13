@@ -53,3 +53,66 @@ export interface Display {
   lastSeenAt: number | null;
   createdAt: number;
 }
+
+// ---------------------------------------------------------------------------
+// Strategic Calendar
+// ---------------------------------------------------------------------------
+
+export type CalendarFieldType =
+  | "text"
+  | "multilineText"
+  | "personPicker"
+  | "seriesPicker"
+  | "campusPicker"
+  | "tagList"
+  | "boolean"
+  | "richText";
+
+export type CalendarEntryStatus = "empty" | "draft" | "confirmed";
+
+export interface TextContent {
+  value: string;
+}
+
+export interface MultilineTextContent {
+  value: string;
+}
+
+export interface PersonPickerContent {
+  people: Array<{
+    name: string;
+    initials: string;
+    rockPersonId: string | null;
+  }>;
+}
+
+export interface SeriesPickerContent {
+  seriesId: string;
+  weekNumber: number;
+}
+
+export interface CampusPickerContent {
+  campuses: Array<{ id: string; name: string }>;
+}
+
+export interface TagListContent {
+  tags: string[];
+}
+
+export interface BooleanContent {
+  value: boolean;
+}
+
+export interface RichTextContent {
+  html: string;
+}
+
+export type CalendarCellContent =
+  | TextContent
+  | MultilineTextContent
+  | PersonPickerContent
+  | SeriesPickerContent
+  | CampusPickerContent
+  | TagListContent
+  | BooleanContent
+  | RichTextContent;
