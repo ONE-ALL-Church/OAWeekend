@@ -15,8 +15,8 @@ const CampusSchema = z.object({
 
 const AttributeValueSchema = z
   .object({
-    Value: z.string().optional().default(""),
-    ValueFormatted: z.string().optional().default(""),
+    Value: z.string().nullable().optional().default(""),
+    ValueFormatted: z.string().nullable().optional().default(""),
   })
   .passthrough();
 
