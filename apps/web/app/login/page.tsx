@@ -1,8 +1,18 @@
-"use client";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
-import { signIn } from "next-auth/react";
+export default async function LoginPage() {
+  // If already logged in, go to operator
+  const session = await auth();
+  if (session?.user) {
+    redirect("/operator");
+  }
 
-export default function LoginPage() {
+  // Get CSRF token for the form
+  const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
+  const csrfRes = await fetch(`${baseUrl}/api/auth/csrf`);
+  const { csrfToken } = await csrfRes.json();
+
   return (
     <main className="flex flex-1 items-center justify-center p-8">
       <div className="w-full max-w-sm space-y-6 text-center">
@@ -12,12 +22,16 @@ export default function LoginPage() {
             Sign in with your ONE&amp;ALL account
           </p>
         </div>
-        <button
-          onClick={() => signIn("rock", { callbackUrl: "/operator" })}
-          className="w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-700 transition-colors"
-        >
-          Sign in with ONE&amp;ALL
-        </button>
+        <form method="POST" action="/api/auth/signin/rock">
+          <input type="hidden" name="csrfToken" value={csrfToken} />
+          <input type="hidden" name="callbackUrl" value="/operator" />
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-700 transition-colors"
+          >
+            Sign in with ONE&amp;ALL
+          </button>
+        </form>
       </div>
     </main>
   );
