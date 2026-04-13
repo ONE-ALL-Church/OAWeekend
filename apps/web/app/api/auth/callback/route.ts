@@ -31,20 +31,20 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${baseUrl}/api/auth/callback`;
 
   try {
-    // Exchange code for tokens
+    // Exchange code for tokens (Rock uses HTTP Basic auth for client credentials)
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
     const tokenRes = await fetch(
       "https://www.oneandall.church/Auth/Token",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${basicAuth}`,
         },
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
           redirect_uri: redirectUri,
-          client_id: clientId,
-          client_secret: clientSecret,
         }),
       }
     );
