@@ -4,7 +4,11 @@ import { use, useState } from "react";
 import Link from "next/link";
 import db from "@/lib/instant";
 import { useSession, useSessionUpdate } from "@/hooks/use-session";
-import { OperatorPanel } from "@/components/operator-panel";
+import { useDisplayForSession } from "@/hooks/use-displays";
+import {
+  DisplayControls,
+  SessionControls,
+} from "@/components/operator-panel";
 import { DisplayAssignment } from "@/components/display-assignment";
 
 export default function OperatorSessionPage({
@@ -15,6 +19,7 @@ export default function OperatorSessionPage({
   const { sessionId } = use(params);
   const { session, isLoading } = useSession(sessionId);
   const { updateSession } = useSessionUpdate(sessionId);
+  const { display: assignedDisplay } = useDisplayForSession(sessionId);
   const [transcriptLines, setTranscriptLines] = useState<
     { kind: string; text: string }[]
   >([]);
@@ -100,9 +105,19 @@ export default function OperatorSessionPage({
 
         {/* Controls sidebar */}
         <div className="w-72 shrink-0 space-y-4">
-          <OperatorPanel
-            fontSize={session.fontSize ?? 64}
-            positionVertical={session.positionVertical ?? "bottom"}
+          {/* Display controls — only shown when a display is assigned */}
+          {assignedDisplay && (
+            <DisplayControls
+              displayId={assignedDisplay.id}
+              theme={assignedDisplay.theme ?? "dark"}
+              fontSize={assignedDisplay.fontSize ?? 64}
+              positionVertical={assignedDisplay.positionVertical ?? "bottom"}
+              maxLines={assignedDisplay.maxLines ?? 3}
+            />
+          )}
+
+          {/* Session controls (profanity filter, pause) */}
+          <SessionControls
             profanityFilter={session.profanityFilter ?? true}
             paused={session.paused ?? false}
             onUpdate={updateSession}

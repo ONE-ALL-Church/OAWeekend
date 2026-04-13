@@ -44,6 +44,16 @@ export function useDisplayWithSession(displayId: string) {
   return { display: data?.displays?.[0] ?? null, isLoading, error };
 }
 
+export function useDisplayForSession(sessionId: string) {
+  const { isLoading, error, data } = db.useQuery({
+    displays: {
+      $: { where: { activeSessionId: sessionId } },
+    },
+  });
+
+  return { display: data?.displays?.[0] ?? null, isLoading, error };
+}
+
 export function useDisplaysForCampus(campusId: string) {
   const { isLoading, error, data } = db.useQuery({
     displays: {
