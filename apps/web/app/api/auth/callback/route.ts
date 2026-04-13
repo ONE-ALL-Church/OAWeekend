@@ -94,6 +94,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Restrict access to allowed users only
+    const ALLOWED_EMAILS = ["brian.davis@oneandall.church"];
+    if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
+      return NextResponse.redirect(
+        new URL("/login?error=unauthorized", request.url)
+      );
+    }
+
     const instantToken = await adminDb.auth.createToken(email);
 
     const response = NextResponse.redirect(new URL("/operator", request.url));
