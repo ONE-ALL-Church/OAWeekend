@@ -13,18 +13,22 @@ const CampusSchema = z.object({
   IsActive: z.boolean().optional(),
 });
 
-const AttributeValueSchema = z.object({
-  Value: z.string().optional().default(""),
-  ValueFormatted: z.string().optional().default(""),
-});
+const AttributeValueSchema = z
+  .object({
+    Value: z.string().optional().default(""),
+    ValueFormatted: z.string().optional().default(""),
+  })
+  .passthrough();
 
-const ContentChannelItemSchema = z.object({
-  Id: z.number(),
-  Title: z.string(),
-  StartDateTime: z.string().nullable().optional(),
-  Status: z.number(),
-  AttributeValues: z.record(AttributeValueSchema).optional(),
-});
+const ContentChannelItemSchema = z
+  .object({
+    Id: z.number(),
+    Title: z.string(),
+    StartDateTime: z.string().nullable().optional(),
+    Status: z.number(),
+    AttributeValues: z.record(AttributeValueSchema).optional(),
+  })
+  .passthrough();
 
 export type RockCampus = z.infer<typeof CampusSchema>;
 export type RockContentChannelItem = z.infer<typeof ContentChannelItemSchema>;

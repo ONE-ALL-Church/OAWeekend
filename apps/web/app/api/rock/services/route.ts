@@ -17,9 +17,11 @@ export async function GET() {
       services,
     });
   } catch (error) {
-    console.error("Rock services error:", error);
+    const message =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error("Rock services error:", message);
     return NextResponse.json(
-      { error: "Failed to fetch data from Rock RMS" },
+      { error: "Failed to fetch data from Rock RMS", detail: message },
       { status: 500 }
     );
   }
