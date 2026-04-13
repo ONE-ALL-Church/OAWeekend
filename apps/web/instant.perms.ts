@@ -37,6 +37,54 @@ const rules = {
         delete: "auth.id != null",
       },
     },
+    calendarSections: {
+      allow: {
+        read: "true",
+        create: "auth.id != null",
+        update: "auth.id != null",
+        delete: "auth.id != null",
+      },
+    },
+    calendarRows: {
+      allow: {
+        read: "true",
+        create: "auth.id != null",
+        update: "auth.id != null",
+        delete: "auth.id != null",
+      },
+    },
+    calendarWeeks: {
+      allow: {
+        read: "true",
+        create: "auth.id != null",
+        update: "auth.id != null",
+        delete: "auth.id != null",
+      },
+    },
+    calendarEntries: {
+      allow: {
+        read: "true",
+        create: "auth.id != null",
+        update: "auth.id != null",
+        delete: "auth.id != null",
+      },
+    },
+    calendarSeries: {
+      allow: {
+        read: "true",
+        create: "auth.id != null",
+        update: "auth.id != null",
+        delete: "auth.id != null",
+      },
+    },
+    calendarRoles: {
+      allow: {
+        read: "auth.id != null",
+        create: "auth.id != null",
+        update: "auth.id != null",
+        delete: "auth.id != null",
+      },
+    },
   },
 };
 
