@@ -23,6 +23,12 @@ export default function Home() {
           Open Dashboard
         </Link>
         <Link
+          href="/calendar"
+          className="rounded-[--radius-button] bg-oa-yellow-500 px-8 py-3.5 text-sm font-semibold text-oa-black-900 hover:bg-oa-yellow-600 transition-colors duration-150"
+        >
+          Strategic Calendar
+        </Link>
+        <Link
           href="/login"
           className="rounded-[--radius-button] border border-oa-stone-300 bg-oa-white px-8 py-3.5 text-sm font-semibold text-oa-black-900 hover:bg-oa-stone-100 transition-colors duration-150"
         >
