@@ -117,11 +117,10 @@ export async function setDisplaySession(
       db.tx.displays[displayId].link({ activeSession: sessionId }),
     ]);
   } else {
-    // Clear session — unlink and remove the stored ID
-    await db.transact([
+    // Clear session — just update the attribute; the link is informational
+    await db.transact(
       db.tx.displays[displayId].update({ activeSessionId: "" }),
-      db.tx.displays[displayId].unlink({ activeSession: "" }),
-    ]);
+    );
   }
 }
 
