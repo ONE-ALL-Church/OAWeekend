@@ -1,0 +1,295 @@
+"use client";
+
+import { useState, useMemo, useCallback } from "react";
+import Link from "next/link";
+import type {
+  CalendarSectionWithRows,
+  CalendarWeekWithEntries,
+  CalendarEntry,
+  CalendarRow,
+} from "@/lib/instant";
+import { buildEntryMap } from "@/hooks/use-calendar";
+import { useUserEditableSections } from "@/hooks/use-calendar-roles";
+import { CalendarSectionHeader } from "./calendar-section-header";
+import { CalendarCell } from "./calendar-cell";
+import { CellEditor } from "./cell-editor";
+import type { CalendarFieldType } from "@oaweekend/shared";
+
+interface CalendarGridProps {
+  sections: CalendarSectionWithRows[];
+  weeks: CalendarWeekWithEntries[];
+  campusFilter: string;
+}
+
+interface EditingCell {
+  entryId?: string;
+  weekId: string;
+  rowId: string;
+  rowName: string;
+  fieldType: CalendarFieldType;
+  currentContent: string;
+  currentStatus: "empty" | "draft" | "confirmed";
+}
+
+export function CalendarGrid({
+  sections,
+  weeks,
+  campusFilter,
+}: CalendarGridProps) {
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
+    new Set(),
+  );
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+  const { editableSectionIds } = useUserEditableSections();
+
+  const entryMap = useMemo(() => buildEntryMap(weeks), [weeks]);
+
+  const toggleSection = useCallback((sectionId: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  }, []);
+
+  const isSectionEditable = useCallback(
+    (sectionId: string) => {
+      if (editableSectionIds === null) return true; // Admin
+      return editableSectionIds.has(sectionId);
+    },
+    [editableSectionIds],
+  );
+
+  // Compute month spans for header
+  const monthSpans = useMemo(() => {
+    const spans: Array<{ label: string; count: number }> = [];
+    let currentMonth = "";
+    let count = 0;
+
+    for (const week of weeks) {
+      const date = new Date(week.weekStart + "T00:00:00");
+      const monthLabel = date.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      });
+
+      if (monthLabel !== currentMonth) {
+        if (currentMonth) spans.push({ label: currentMonth, count });
+        currentMonth = monthLabel;
+        count = 1;
+      } else {
+        count++;
+      }
+    }
+    if (currentMonth) spans.push({ label: currentMonth, count });
+    return spans;
+  }, [weeks]);
+
+  const gridCols = `180px repeat(${weeks.length}, minmax(140px, 1fr))`;
+
+  return (
+    <>
+      <div className="overflow-x-auto">
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: gridCols,
+            minWidth: `${180 + weeks.length * 140}px`,
+          }}
+        >
+          {/* Month header row */}
+          <div className="bg-oa-white border-b border-oa-stone-200" />
+          {monthSpans.map((span, i) => (
+            <div
+              key={i}
+              className="bg-oa-sand-100/35 border-b border-oa-stone-200 px-3 py-2.5 text-center text-xs font-bold uppercase tracking-widest text-oa-black-700"
+              style={{ gridColumn: `span ${span.count}` }}
+            >
+              {span.label}
+            </div>
+          ))}
+
+          {/* Week header row */}
+          <div className="bg-oa-white border-b-2 border-oa-stone-200 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-oa-stone-300">
+            Date
+          </div>
+          {weeks.map((week) => {
+            const sat = new Date(week.weekStart + "T00:00:00");
+            const sun = new Date(sat);
+            sun.setDate(sat.getDate() + 1);
+            const satDay = sat.getDate();
+            const sunDay = sun.getDate();
+
+            return (
+              <Link
+                key={week.id}
+                href={`/calendar/week/${week.weekStart}`}
+                className="bg-oa-white border-b-2 border-oa-stone-200 px-2 py-2.5 text-center hover:bg-oa-sand-100/35 transition-colors duration-[220ms]"
+              >
+                <div className="text-[13px] font-semibold text-oa-black-900">
+                  {satDay} &amp; {sunDay}
+                </div>
+                {week.label && (
+                  <div className="mt-1 inline-block rounded-[10px] bg-oa-yellow-500/12 px-2 py-0.5 text-[10px] font-semibold text-oa-yellow-600">
+                    {week.label}
+                  </div>
+                )}
+              </Link>
+            );
+          })}
+
+          {/* Section rows */}
+          {sections.map((section) => {
+            const isExpanded = !collapsedSections.has(section.id);
+            const visibleRows = campusFilter
+              ? section.rows.filter(
+                  (r) => !r.campusSpecific || r.campusSpecific,
+                )
+              : section.rows;
+            const editable = isSectionEditable(section.id);
+
+            return (
+              <SectionBlock
+                key={section.id}
+                section={section}
+                rows={visibleRows as CalendarRow[]}
+                weeks={weeks}
+                entryMap={entryMap}
+                isExpanded={isExpanded}
+                onToggle={() => toggleSection(section.id)}
+                isEditable={editable}
+                onCellClick={(cell) => setEditingCell(cell)}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Cell editor modal */}
+      {editingCell && (
+        <CellEditor
+          entryId={editingCell.entryId}
+          weekId={editingCell.weekId}
+          rowId={editingCell.rowId}
+          rowName={editingCell.rowName}
+          fieldType={editingCell.fieldType}
+          currentContent={editingCell.currentContent}
+          currentStatus={editingCell.currentStatus}
+          onClose={() => setEditingCell(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function SectionBlock({
+  section,
+  rows,
+  weeks,
+  entryMap,
+  isExpanded,
+  onToggle,
+  isEditable,
+  onCellClick,
+}: {
+  section: CalendarSectionWithRows;
+  rows: CalendarRow[];
+  weeks: CalendarWeekWithEntries[];
+  entryMap: Map<string, CalendarEntry>;
+  isExpanded: boolean;
+  onToggle: () => void;
+  isEditable: boolean;
+  onCellClick: (cell: EditingCell) => void;
+}) {
+  return (
+    <>
+      <CalendarSectionHeader
+        name={section.name}
+        slug={section.slug}
+        color={section.color}
+        rowCount={rows.length}
+        isExpanded={isExpanded}
+        onToggle={onToggle}
+      />
+
+      {isExpanded &&
+        rows.map((row, rowIdx) => {
+          const isLastRow = rowIdx === rows.length - 1;
+
+          return (
+            <RowBlock
+              key={row.id}
+              row={row}
+              weeks={weeks}
+              entryMap={entryMap}
+              isLastRow={isLastRow}
+              isEditable={isEditable}
+              onCellClick={onCellClick}
+            />
+          );
+        })}
+    </>
+  );
+}
+
+function RowBlock({
+  row,
+  weeks,
+  entryMap,
+  isLastRow,
+  isEditable,
+  onCellClick,
+}: {
+  row: CalendarRow;
+  weeks: CalendarWeekWithEntries[];
+  entryMap: Map<string, CalendarEntry>;
+  isLastRow: boolean;
+  isEditable: boolean;
+  onCellClick: (cell: EditingCell) => void;
+}) {
+  const borderClass = isLastRow
+    ? "border-b-2 border-b-oa-stone-200"
+    : "border-b border-b-oa-stone-200/50";
+
+  return (
+    <>
+      {/* Row label */}
+      <div
+        className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center`}
+      >
+        {row.name}
+      </div>
+
+      {/* Cells */}
+      {weeks.map((week) => {
+        const entry = entryMap.get(`${week.id}:${row.id}`);
+
+        return (
+          <CalendarCell
+            key={`${week.id}:${row.id}`}
+            content={entry?.content ?? ""}
+            fieldType={row.fieldType as CalendarFieldType}
+            status={entry?.status ?? "empty"}
+            isEditable={isEditable}
+            isLastRow={isLastRow}
+            onClick={() =>
+              onCellClick({
+                entryId: entry?.id,
+                weekId: week.id,
+                rowId: row.id,
+                rowName: row.name,
+                fieldType: row.fieldType as CalendarFieldType,
+                currentContent: entry?.content ?? "",
+                currentStatus: (entry?.status as "empty" | "draft" | "confirmed") ?? "empty",
+              })
+            }
+          />
+        );
+      })}
+    </>
+  );
+}
