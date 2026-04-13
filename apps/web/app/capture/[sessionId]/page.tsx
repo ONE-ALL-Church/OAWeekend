@@ -7,6 +7,7 @@ import { useDeepgram, type DeepgramTranscript } from "@/hooks/use-deepgram";
 import { useTranscript } from "@/hooks/use-transcript";
 import { useSession, useSessionUpdate, useKeyterms } from "@/hooks/use-session";
 import { AudioLevelMeter } from "@/components/audio-level-meter";
+import { ABSOLUTE_MAX_DURATION_MINUTES } from "@oaweekend/shared";
 
 export default function CapturePage({
   params,
@@ -21,7 +22,9 @@ export default function CapturePage({
   const { handleTranscript, resetSequence } = useTranscript({ sessionId });
 
   const [recentTranscripts, setRecentTranscripts] = useState<string[]>([]);
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
   const isStreamingRef = useRef(false);
+  const autoStopCalledRef = useRef(false);
 
   const {
     devices,
@@ -59,35 +62,69 @@ export default function CapturePage({
     onTranscript((transcript: DeepgramTranscript) => {
       handleTranscript(transcript);
 
-      // Update recent transcripts for preview
       if (transcript.kind === "final") {
         setRecentTranscripts((prev) => {
           const next = [...prev, transcript.text];
-          return next.slice(-5); // Keep last 5 lines
+          return next.slice(-5);
         });
       }
     });
   }, [onTranscript, handleTranscript]);
 
+  const stopStreaming = useCallback(() => {
+    isStreamingRef.current = false;
+    disconnect();
+    stopCapture();
+
+    updateSession({
+      status: "ended",
+      endedAt: Date.now(),
+    });
+  }, [disconnect, stopCapture, updateSession]);
+
+  // Duration countdown timer + auto-stop
+  useEffect(() => {
+    if (!session || session.status !== "live") {
+      setRemainingMs(null);
+      autoStopCalledRef.current = false;
+      return;
+    }
+
+    const userLimit = (session.maxDurationMinutes as number) ?? 120;
+    const effectiveLimit = Math.min(userLimit, ABSOLUTE_MAX_DURATION_MINUTES);
+    const deadlineMs = (session.startedAt as number) + effectiveLimit * 60_000;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const remaining = deadlineMs - now;
+      setRemainingMs(remaining);
+
+      if (remaining <= 0 && !autoStopCalledRef.current) {
+        autoStopCalledRef.current = true;
+        stopStreaming();
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [session, stopStreaming]);
+
   const startStreaming = useCallback(async () => {
     if (isStreamingRef.current) return;
     isStreamingRef.current = true;
+    autoStopCalledRef.current = false;
     resetSequence();
 
     const activeKeyterms = keyterms
       .filter((k) => k.active)
       .map((k) => `${k.term}:${k.boost}`);
 
-    // Start audio capture
     await startCapture();
 
-    // Connect to Deepgram
     await connect({
       profanityFilter: session?.profanityFilter ?? true,
       keywords: activeKeyterms,
     });
 
-    // Update session status to live
     updateSession({
       status: "live",
       startedAt: Date.now(),
@@ -100,17 +137,6 @@ export default function CapturePage({
     keyterms,
     resetSequence,
   ]);
-
-  const stopStreaming = useCallback(() => {
-    isStreamingRef.current = false;
-    disconnect();
-    stopCapture();
-
-    updateSession({
-      status: "ended",
-      endedAt: Date.now(),
-    });
-  }, [disconnect, stopCapture, updateSession]);
 
   const error = audioError || dgError;
 
@@ -155,6 +181,19 @@ export default function CapturePage({
           )}
         </div>
       </div>
+
+      {/* Duration Timer */}
+      {session.status === "live" && remainingMs !== null && (
+        <DurationBar
+          remainingMs={remainingMs}
+          maxDurationMinutes={
+            Math.min(
+              (session.maxDurationMinutes as number) ?? 120,
+              ABSOLUTE_MAX_DURATION_MINUTES
+            )
+          }
+        />
+      )}
 
       {/* Audio Device Selection */}
       <div className="space-y-2">
@@ -254,5 +293,57 @@ export default function CapturePage({
         </button>
       </div>
     </main>
+  );
+}
+
+function DurationBar({
+  remainingMs,
+  maxDurationMinutes,
+}: {
+  remainingMs: number;
+  maxDurationMinutes: number;
+}) {
+  const totalMs = maxDurationMinutes * 60_000;
+  const elapsed = totalMs - remainingMs;
+  const pct = Math.min(100, Math.max(0, (elapsed / totalMs) * 100));
+  const isWarning = remainingMs < 5 * 60_000; // under 5 min
+  const isExpired = remainingMs <= 0;
+
+  const mins = Math.max(0, Math.floor(remainingMs / 60_000));
+  const secs = Math.max(0, Math.floor((remainingMs % 60_000) / 1000));
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-neutral-500">
+          Time remaining
+        </span>
+        <span
+          className={
+            isExpired
+              ? "text-red-600 font-medium"
+              : isWarning
+                ? "text-amber-600 font-medium"
+                : "text-neutral-600"
+          }
+        >
+          {isExpired
+            ? "Auto-stopping..."
+            : `${mins}:${secs.toString().padStart(2, "0")}`}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-neutral-200 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-1000 ${
+            isExpired
+              ? "bg-red-500"
+              : isWarning
+                ? "bg-amber-500"
+                : "bg-green-500"
+          }`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
   );
 }

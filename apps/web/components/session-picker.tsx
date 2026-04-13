@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { id } from "@instantdb/react";
 import db from "@/lib/instant";
-import { SESSION_DEFAULTS } from "@oaweekend/shared";
+import { SESSION_DEFAULTS, MAX_DURATION_OPTIONS } from "@oaweekend/shared";
 
 const DEFAULT_CAMPUSES = [
   { id: "main", name: "Main Campus" },
@@ -17,6 +17,9 @@ export function SessionPicker() {
   const [campusId, setCampusId] = useState(DEFAULT_CAMPUSES[0].id);
   const [sermonTitle, setSermonTitle] = useState("");
   const [speakerName, setSpeakerName] = useState("");
+  const [maxDurationMinutes, setMaxDurationMinutes] = useState<number>(
+    SESSION_DEFAULTS.maxDurationMinutes
+  );
   const [creating, setCreating] = useState(false);
 
   const campus = DEFAULT_CAMPUSES.find((c) => c.id === campusId);
@@ -38,6 +41,7 @@ export function SessionPicker() {
         endedAt: null,
         status: "idle",
         ...SESSION_DEFAULTS,
+        maxDurationMinutes,
       })
     );
 
@@ -88,6 +92,24 @@ export function SessionPicker() {
             placeholder="e.g. Pastor Brian"
             className="w-full mt-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
           />
+        </div>
+
+        <div>
+          <label className="text-xs text-neutral-500">Max Duration</label>
+          <select
+            value={maxDurationMinutes}
+            onChange={(e) => setMaxDurationMinutes(Number(e.target.value))}
+            className="w-full mt-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+          >
+            {MAX_DURATION_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-neutral-400">
+            Capture will auto-stop after this time
+          </p>
         </div>
 
         <button
