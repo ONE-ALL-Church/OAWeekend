@@ -6,6 +6,7 @@ import { useAudioCapture } from "@/hooks/use-audio-capture";
 import { useDeepgram, type DeepgramTranscript } from "@/hooks/use-deepgram";
 import { useTranscript } from "@/hooks/use-transcript";
 import { useSession, useSessionUpdate, useKeyterms } from "@/hooks/use-session";
+import { useDisplays, setDisplaySession } from "@/hooks/use-displays";
 import { AudioLevelMeter } from "@/components/audio-level-meter";
 import { ABSOLUTE_MAX_DURATION_MINUTES } from "@oaweekend/shared";
 
@@ -20,6 +21,7 @@ export default function CapturePage({
   const { updateSession } = useSessionUpdate(sessionId);
   const { keyterms } = useKeyterms();
   const { handleTranscript, resetSequence } = useTranscript({ sessionId });
+  const { displays } = useDisplays();
 
   const [recentTranscripts, setRecentTranscripts] = useState<string[]>([]);
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
@@ -63,12 +65,20 @@ export default function CapturePage({
     });
   }, [onTranscript, handleTranscript]);
 
-  const stopStreaming = useCallback(() => {
+  const stopStreaming = useCallback(async () => {
     isStreamingRef.current = false;
     disconnect();
     stopCapture();
     updateSession({ status: "ended", endedAt: Date.now() });
-  }, [disconnect, stopCapture, updateSession]);
+
+    // Clear this session from any displays showing it
+    const assignedDisplays = displays.filter(
+      (d) => d.activeSessionId === sessionId,
+    );
+    for (const d of assignedDisplays) {
+      await setDisplaySession(d.id, null);
+    }
+  }, [disconnect, stopCapture, updateSession, displays, sessionId]);
 
   // Duration countdown + auto-stop
   useEffect(() => {
