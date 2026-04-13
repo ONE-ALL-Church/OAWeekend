@@ -111,7 +111,7 @@ export default function OperatorSessionPage({
           <div className="space-y-2">
             <button
               onClick={() =>
-                window.open(`/display/${sessionId}`, "_blank")
+                window.open(`/display/session/${sessionId}`, "_blank")
               }
               className="w-full rounded-[--radius-button] border border-oa-stone-200 bg-oa-white py-2.5 text-sm font-medium text-oa-black-900 hover:bg-oa-stone-100 transition-colors duration-150 shadow-[--shadow-card]"
             >

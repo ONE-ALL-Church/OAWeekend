@@ -30,6 +30,7 @@ interface CaptionOverlayProps {
   maxLines?: number;
   paused: boolean;
   lines: CaptionLine[];
+  textColorClass?: string;
 }
 
 const FADE_DURATION = 500;
@@ -41,6 +42,7 @@ export function CaptionOverlay({
   maxLines = 3,
   paused,
   lines,
+  textColorClass = "text-white",
 }: CaptionOverlayProps) {
   const [visibleLines, setVisibleLines] = useState<CaptionLine[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -73,7 +75,7 @@ export function CaptionOverlay({
 
   return (
     <div
-      className={`fixed inset-0 flex flex-col justify-center ${positionClass} bg-black`}
+      className={`fixed inset-0 flex flex-col justify-center ${positionClass}`}
     >
       <div className="w-full px-[5vw] text-center">
         {visibleLines.map((line) => {
@@ -85,7 +87,7 @@ export function CaptionOverlay({
           return (
             <p
               key={line.id}
-              className="text-white font-semibold leading-tight transition-opacity duration-500"
+              className={`${textColorClass} font-semibold leading-tight transition-opacity duration-500`}
               style={{
                 fontSize: `${fontSize}px`,
                 opacity,

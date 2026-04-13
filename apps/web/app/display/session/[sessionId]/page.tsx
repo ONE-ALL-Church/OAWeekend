@@ -66,14 +66,16 @@ export default function DisplayPage({
   }
 
   return (
-    <CaptionOverlay
-      fontSize={session.fontSize ?? 64}
-      positionVertical={
-        (session.positionVertical as "top" | "middle" | "bottom") ?? "bottom"
-      }
-      maxLines={3}
-      paused={session.paused ?? false}
-      lines={lines}
-    />
+    <div className="fixed inset-0 bg-black">
+      <CaptionOverlay
+        fontSize={session.fontSize ?? 64}
+        positionVertical={
+          (session.positionVertical as "top" | "middle" | "bottom") ?? "bottom"
+        }
+        maxLines={3}
+        paused={session.paused ?? false}
+        lines={lines}
+      />
+    </div>
   );
 }

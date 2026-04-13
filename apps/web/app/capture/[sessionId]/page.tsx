@@ -247,7 +247,7 @@ export default function CapturePage({
       {/* Quick Links */}
       <div className="flex gap-4 text-sm">
         <button
-          onClick={() => window.open(`/display/${sessionId}`, "_blank")}
+          onClick={() => window.open(`/display/session/${sessionId}`, "_blank")}
           className="text-oa-black-700 hover:text-oa-black-900 underline underline-offset-2 transition-colors duration-150"
         >
           Open Display View
