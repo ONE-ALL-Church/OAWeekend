@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import adminDb from "@/lib/instant-admin";
 
-/**
- * Handles the Rock RMS OIDC callback.
- * Exchanges the auth code for tokens, fetches user info,
- * creates an InstantDB auth token, and redirects to the app.
- */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const storedState = request.cookies.get("oauth_state")?.value;
 
-  // Validate state
   if (!state || !storedState || state !== storedState) {
     return NextResponse.redirect(
       new URL("/login?error=invalid_state", request.url)
@@ -25,33 +19,45 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const clientId = process.env.ROCK_CLIENT_ID!;
-  const clientSecret = process.env.ROCK_CLIENT_SECRET!;
+  const clientId = process.env.ROCK_CLIENT_ID;
+  const clientSecret = process.env.ROCK_CLIENT_SECRET;
   const baseUrl = request.nextUrl.origin;
   const redirectUri = `${baseUrl}/api/auth/callback`;
 
+  // Debug: surface env var presence
+  if (!clientId || !clientSecret) {
+    const detail = encodeURIComponent(
+      `Missing env: clientId=${!!clientId}, clientSecret=${!!clientSecret}`
+    );
+    return NextResponse.redirect(
+      new URL(`/login?error=config&detail=${detail}`, request.url)
+    );
+  }
+
   try {
-    // Exchange code for tokens (Rock uses HTTP Basic auth for client credentials)
-    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    // Try client_secret_post first (credentials in body)
     const tokenRes = await fetch(
       "https://www.oneandall.church/Auth/Token",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${basicAuth}`,
         },
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
           redirect_uri: redirectUri,
+          client_id: clientId,
+          client_secret: clientSecret,
         }),
       }
     );
 
     if (!tokenRes.ok) {
       const text = await tokenRes.text();
-      const detail = encodeURIComponent(`${tokenRes.status}: ${text.slice(0, 300)}`);
+      const detail = encodeURIComponent(
+        `${tokenRes.status}: ${text.slice(0, 200)} | id=${clientId.slice(0, 8)}... | uri=${redirectUri}`
+      );
       return NextResponse.redirect(
         new URL(`/login?error=token_exchange&detail=${detail}`, request.url)
       );
@@ -59,7 +65,6 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenRes.json();
 
-    // Fetch user info
     const userinfoRes = await fetch(
       "https://www.oneandall.church/Auth/UserInfo",
       {
@@ -70,9 +75,12 @@ export async function GET(request: NextRequest) {
     );
 
     if (!userinfoRes.ok) {
-      console.error("UserInfo failed:", userinfoRes.status);
+      const text = await userinfoRes.text();
+      const detail = encodeURIComponent(
+        `${userinfoRes.status}: ${text.slice(0, 200)}`
+      );
       return NextResponse.redirect(
-        new URL("/login?error=userinfo", request.url)
+        new URL(`/login?error=userinfo&detail=${detail}`, request.url)
       );
     }
 
@@ -86,22 +94,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Create InstantDB auth token
     const instantToken = await adminDb.auth.createToken(email);
 
-    // Redirect to app with the InstantDB token
     const response = NextResponse.redirect(new URL("/operator", request.url));
 
-    // Store the token in a cookie for the client to pick up
     response.cookies.set("instant_token", instantToken, {
-      httpOnly: false, // Client JS needs to read this
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     });
 
-    // Store user name for display
     response.cookies.set("user_name", name ?? email, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
@@ -110,14 +114,15 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
     });
 
-    // Clear the oauth state cookie
     response.cookies.delete("oauth_state");
 
     return response;
   } catch (error) {
-    console.error("Auth callback error:", error);
+    const detail = encodeURIComponent(
+      error instanceof Error ? error.message : String(error)
+    );
     return NextResponse.redirect(
-      new URL("/login?error=server", request.url)
+      new URL(`/login?error=server&detail=${detail}`, request.url)
     );
   }
 }
