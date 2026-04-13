@@ -142,7 +142,7 @@ function FieldEditor({
 
   switch (fieldType) {
     case "text": {
-      const value = parsed?.value ?? "";
+      const value = (parsed?.value as string) ?? "";
       return (
         <input
           type="text"
@@ -155,7 +155,7 @@ function FieldEditor({
       );
     }
     case "multilineText": {
-      const value = parsed?.value ?? "";
+      const value = (parsed?.value as string) ?? "";
       return (
         <textarea
           value={value}
@@ -168,7 +168,7 @@ function FieldEditor({
       );
     }
     case "tagList": {
-      const tags: string[] = parsed?.tags ?? [];
+      const tags: string[] = (parsed?.tags as string[]) ?? [];
       const [newTag, setNewTag] = useState("");
       return (
         <div>
@@ -210,7 +210,7 @@ function FieldEditor({
       );
     }
     case "boolean": {
-      const value = parsed?.value ?? false;
+      const value = (parsed?.value as boolean) ?? false;
       return (
         <label className="flex items-center gap-3 cursor-pointer">
           <input
@@ -227,7 +227,7 @@ function FieldEditor({
     }
     case "personPicker": {
       // Simple name-based input for MVP
-      const people: Array<{ name: string; initials: string; rockPersonId: string | null }> = parsed?.people ?? [];
+      const people: Array<{ name: string; initials: string; rockPersonId: string | null }> = (parsed?.people as Array<{ name: string; initials: string; rockPersonId: string | null }>) ?? [];
       const [newName, setNewName] = useState("");
       return (
         <div>
