@@ -5,6 +5,7 @@ import Link from "next/link";
 import db from "@/lib/instant";
 import { useSession, useSessionUpdate } from "@/hooks/use-session";
 import { OperatorPanel } from "@/components/operator-panel";
+import { DisplayAssignment } from "@/components/display-assignment";
 
 export default function OperatorSessionPage({
   params,
@@ -105,6 +106,11 @@ export default function OperatorSessionPage({
             profanityFilter={session.profanityFilter ?? true}
             paused={session.paused ?? false}
             onUpdate={updateSession}
+          />
+
+          <DisplayAssignment
+            sessionId={sessionId}
+            campusId={session.campusId}
           />
 
           {/* Quick actions */}

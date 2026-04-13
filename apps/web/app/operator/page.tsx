@@ -6,6 +6,7 @@ import type { Session } from "@/lib/instant";
 import { useSessions } from "@/hooks/use-session";
 import { SessionPicker } from "@/components/session-picker";
 import { KeytermManager } from "@/components/keyterm-manager";
+import { DisplayManager } from "@/components/display-manager";
 
 export default function OperatorPage() {
   const { user } = db.useAuth();
@@ -96,7 +97,8 @@ export default function OperatorPage() {
         </div>
 
         {/* Right column: Keyterms (2/5) */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
+          <DisplayManager />
           <KeytermManager />
         </div>
       </div>
