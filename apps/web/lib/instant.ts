@@ -19,3 +19,34 @@ export type SessionWithTranscripts = InstaQLEntity<
 >;
 export type Display = InstaQLEntity<AppSchema, "displays">;
 export type DisplayWithSession = InstaQLEntity<AppSchema, "displays", { activeSession: {} }>;
+export type CalendarSection = InstaQLEntity<AppSchema, "calendarSections">;
+export type CalendarSectionWithRows = InstaQLEntity<
+  AppSchema,
+  "calendarSections",
+  { rows: {} }
+>;
+export type CalendarRow = InstaQLEntity<AppSchema, "calendarRows">;
+export type CalendarWeek = InstaQLEntity<AppSchema, "calendarWeeks">;
+export type CalendarWeekWithEntries = InstaQLEntity<
+  AppSchema,
+  "calendarWeeks",
+  { entries: { row: {} }; series: {} }
+>;
+export type CalendarEntry = InstaQLEntity<AppSchema, "calendarEntries">;
+export type CalendarEntryWithLinks = InstaQLEntity<
+  AppSchema,
+  "calendarEntries",
+  { week: {}; row: {} }
+>;
+export type CalendarSeries = InstaQLEntity<AppSchema, "calendarSeries">;
+export type CalendarSeriesWithWeeks = InstaQLEntity<
+  AppSchema,
+  "calendarSeries",
+  { weeks: {} }
+>;
+export type CalendarRole = InstaQLEntity<AppSchema, "calendarRoles">;
+export type CalendarRoleWithMembers = InstaQLEntity<
+  AppSchema,
+  "calendarRoles",
+  { members: {}; sections: {} }
+>;
