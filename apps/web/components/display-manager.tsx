@@ -4,10 +4,14 @@ import { useState } from "react";
 import {
   useDisplays,
   createDisplay,
+  updateDisplay,
   deleteDisplay,
 } from "@/hooks/use-displays";
 import { useRockData } from "@/hooks/use-rock-data";
-import { DISPLAY_ONLINE_THRESHOLD_MS } from "@oaweekend/shared";
+import {
+  DISPLAY_ONLINE_THRESHOLD_MS,
+  DISPLAY_THEMES,
+} from "@oaweekend/shared";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,12 +33,20 @@ function isOnline(lastSeenAt: number | undefined): boolean {
 // CreateDisplayForm
 // ---------------------------------------------------------------------------
 
-function CreateDisplayForm({ onCreated }: { onCreated: () => void }) {
+export function CreateDisplayForm({
+  onCreated,
+  defaultCampusId,
+  defaultCampusName,
+}: {
+  onCreated: (displayId: string) => void;
+  defaultCampusId?: string;
+  defaultCampusName?: string;
+}) {
   const { campuses, isLoading: campusesLoading } = useRockData();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
-  const [campusId, setCampusId] = useState("");
+  const [campusId, setCampusId] = useState(defaultCampusId ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   function handleNameChange(value: string) {
@@ -58,7 +70,7 @@ function CreateDisplayForm({ onCreated }: { onCreated: () => void }) {
 
     setSubmitting(true);
     try {
-      await createDisplay({
+      const displayId = await createDisplay({
         name: name.trim(),
         slug: slug.trim(),
         campusId: String(selectedCampus.id),
@@ -67,8 +79,8 @@ function CreateDisplayForm({ onCreated }: { onCreated: () => void }) {
       setName("");
       setSlug("");
       setSlugTouched(false);
-      setCampusId("");
-      onCreated();
+      setCampusId(defaultCampusId ?? "");
+      onCreated(displayId);
     } finally {
       setSubmitting(false);
     }
@@ -147,10 +159,15 @@ function DisplayCard({
     campusName?: string;
     lastSeenAt?: number;
     activeSessionId?: string;
+    theme?: string;
+    fontSize?: number;
+    positionVertical?: string;
+    maxLines?: number;
   };
 }) {
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const online = isOnline(display.lastSeenAt);
   const hasSession = !!display.activeSessionId;
@@ -171,47 +188,161 @@ function DisplayCard({
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-[--radius-input] border border-oa-stone-200 px-3 py-2.5 hover:bg-oa-stone-100 transition-colors duration-150">
-      {/* Status dot */}
-      <span
-        className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-          online ? "bg-green-500" : "bg-oa-stone-300"
-        }`}
-        title={online ? "Online" : "Offline"}
-      />
+    <div className="rounded-[--radius-input] border border-oa-stone-200 transition-colors duration-150">
+      {/* Summary row */}
+      <div className="flex items-center gap-3 px-3 py-2.5 hover:bg-oa-stone-100 transition-colors duration-150">
+        {/* Status dot */}
+        <span
+          className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+            online ? "bg-green-500" : "bg-oa-stone-300"
+          }`}
+          title={online ? "Online" : "Offline"}
+        />
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-oa-black-900 truncate">
-          {display.name}
-        </p>
-        <p className="text-xs text-oa-stone-300">
-          {display.campusName ?? "No campus"}
-          {" \u00B7 "}
-          {hasSession ? "Showing session" : "Idle"}
-        </p>
+        {/* Info — click to expand settings */}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex-1 min-w-0 text-left"
+        >
+          <p className="text-sm font-medium text-oa-black-900 truncate">
+            {display.name}
+          </p>
+          <p className="text-xs text-oa-stone-300">
+            {display.campusName ?? "No campus"}
+            {" \u00B7 "}
+            {hasSession ? "Showing session" : "Idle"}
+          </p>
+        </button>
+
+        {/* Actions */}
+        <button
+          onClick={handleCopyUrl}
+          className="shrink-0 rounded-[--radius-button] border border-oa-stone-200 px-2.5 py-1.5 text-xs font-medium text-oa-black-700 hover:bg-oa-stone-100 transition-colors duration-150"
+        >
+          {copied ? "Copied!" : "Copy URL"}
+        </button>
+
+        <button
+          onClick={handleDelete}
+          onBlur={() => setConfirming(false)}
+          className={`shrink-0 text-sm transition-colors duration-150 ${
+            confirming
+              ? "text-oa-coral font-semibold"
+              : "text-oa-stone-300 hover:text-oa-coral"
+          }`}
+          title={confirming ? "Click again to confirm" : "Delete display"}
+        >
+          {confirming ? "Confirm?" : "\u00D7"}
+        </button>
       </div>
 
-      {/* Actions */}
-      <button
-        onClick={handleCopyUrl}
-        className="shrink-0 rounded-[--radius-button] border border-oa-stone-200 px-2.5 py-1.5 text-xs font-medium text-oa-black-700 hover:bg-oa-stone-100 transition-colors duration-150"
-      >
-        {copied ? "Copied!" : "Copy URL"}
-      </button>
+      {/* Settings panel */}
+      {expanded && (
+        <DisplaySettings displayId={display.id} display={display} />
+      )}
+    </div>
+  );
+}
 
-      <button
-        onClick={handleDelete}
-        onBlur={() => setConfirming(false)}
-        className={`shrink-0 text-sm transition-colors duration-150 ${
-          confirming
-            ? "text-oa-coral font-semibold"
-            : "text-oa-stone-300 hover:text-oa-coral"
-        }`}
-        title={confirming ? "Click again to confirm" : "Delete display"}
-      >
-        {confirming ? "Confirm?" : "\u00D7"}
-      </button>
+// ---------------------------------------------------------------------------
+// DisplaySettings (inline per-display controls)
+// ---------------------------------------------------------------------------
+
+function DisplaySettings({
+  displayId,
+  display,
+}: {
+  displayId: string;
+  display: {
+    theme?: string;
+    fontSize?: number;
+    positionVertical?: string;
+    maxLines?: number;
+  };
+}) {
+  const theme = display.theme ?? "dark";
+  const fontSize = display.fontSize ?? 64;
+  const positionVertical = display.positionVertical ?? "bottom";
+  const maxLines = display.maxLines ?? 3;
+
+  async function set(field: string, value: string | number) {
+    await updateDisplay(displayId, { [field]: value });
+  }
+
+  return (
+    <div className="border-t border-oa-stone-200 px-3 py-3 space-y-3 bg-oa-stone-100/50">
+      {/* Theme */}
+      <div className="flex items-center justify-between gap-4">
+        <label className="text-xs font-medium text-oa-black-700 shrink-0">
+          Theme
+        </label>
+        <select
+          value={theme}
+          onChange={(e) => set("theme", e.target.value)}
+          className="rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-2.5 py-1.5 text-xs focus:border-oa-yellow-500 focus:outline-none transition-colors"
+        >
+          {DISPLAY_THEMES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Font Size */}
+      <div className="flex items-center justify-between gap-4">
+        <label className="text-xs font-medium text-oa-black-700 shrink-0">
+          Font Size
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            type="range"
+            min={32}
+            max={128}
+            step={4}
+            value={fontSize}
+            onChange={(e) => set("fontSize", Number(e.target.value))}
+            className="w-24 accent-oa-yellow-500"
+          />
+          <span className="text-xs tabular-nums text-oa-black-700 w-8 text-right">
+            {fontSize}
+          </span>
+        </div>
+      </div>
+
+      {/* Position */}
+      <div className="flex items-center justify-between gap-4">
+        <label className="text-xs font-medium text-oa-black-700 shrink-0">
+          Position
+        </label>
+        <select
+          value={positionVertical}
+          onChange={(e) => set("positionVertical", e.target.value)}
+          className="rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-2.5 py-1.5 text-xs focus:border-oa-yellow-500 focus:outline-none transition-colors"
+        >
+          <option value="top">Top</option>
+          <option value="middle">Middle</option>
+          <option value="bottom">Bottom</option>
+        </select>
+      </div>
+
+      {/* Max Lines */}
+      <div className="flex items-center justify-between gap-4">
+        <label className="text-xs font-medium text-oa-black-700 shrink-0">
+          Max Lines
+        </label>
+        <select
+          value={maxLines}
+          onChange={(e) => set("maxLines", Number(e.target.value))}
+          className="rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-2.5 py-1.5 text-xs focus:border-oa-yellow-500 focus:outline-none transition-colors"
+        >
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }
@@ -248,6 +379,7 @@ export function DisplayManager() {
       {/* Create form */}
       {showCreate && (
         <CreateDisplayForm onCreated={() => setShowCreate(false)} />
+
       )}
 
       {/* Display list */}

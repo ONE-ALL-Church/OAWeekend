@@ -10,6 +10,7 @@ import {
   type RockServiceClient,
 } from "@/hooks/use-rock-data";
 import { useDisplays, setDisplaySession } from "@/hooks/use-displays";
+import { CreateDisplayForm } from "@/components/display-manager";
 
 export function SessionPicker() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export function SessionPicker() {
   const [creating, setCreating] = useState(false);
   const { displays } = useDisplays();
   const [selectedDisplayId, setSelectedDisplayId] = useState<string>("");
+  const [showCreateDisplay, setShowCreateDisplay] = useState(false);
 
   // When campuses load, default to first one
   if (campuses.length > 0 && !campusId) {
@@ -197,12 +199,12 @@ export function SessionPicker() {
           )}
         </Field>
 
-        {displays.length > 0 && (
-          <Field label="Display" hint="Which screen to push captions to">
+        <Field label="Display" hint="Which screen to push captions to">
+          <div className="flex items-center gap-2">
             <select
               value={selectedDisplayId}
               onChange={(e) => setSelectedDisplayId(e.target.value)}
-              className="w-full rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-3 py-2.5 text-sm focus:border-oa-yellow-500 focus:outline-none transition-colors"
+              className="flex-1 rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-3 py-2.5 text-sm focus:border-oa-yellow-500 focus:outline-none transition-colors"
             >
               <option value="">None (manual URL)</option>
               {displays.map((d) => (
@@ -211,8 +213,27 @@ export function SessionPicker() {
                 </option>
               ))}
             </select>
-          </Field>
-        )}
+            <button
+              type="button"
+              onClick={() => setShowCreateDisplay((v) => !v)}
+              className="shrink-0 rounded-[--radius-button] border border-oa-stone-200 px-3 py-2.5 text-xs font-semibold text-oa-black-700 hover:bg-oa-stone-100 transition-colors"
+            >
+              {showCreateDisplay ? "Cancel" : "+ New"}
+            </button>
+          </div>
+          {showCreateDisplay && (
+            <div className="mt-3 rounded-[--radius-card] border border-oa-stone-200 bg-oa-stone-100/50 p-4">
+              <CreateDisplayForm
+                defaultCampusId={campusId}
+                defaultCampusName={campusName}
+                onCreated={(displayId) => {
+                  setSelectedDisplayId(displayId);
+                  setShowCreateDisplay(false);
+                }}
+              />
+            </div>
+          )}
+        </Field>
 
         <Field label="Sermon Title" optional>
           <input
