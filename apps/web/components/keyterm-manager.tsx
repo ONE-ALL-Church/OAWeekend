@@ -32,11 +32,24 @@ export function KeytermManager() {
     db.transact(db.tx.keyterms[keytermId].delete());
   }
 
-  if (isLoading) return <p className="text-sm text-neutral-400">Loading...</p>;
+  if (isLoading) {
+    return (
+      <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-6 shadow-[--shadow-card]">
+        <p className="text-sm text-oa-stone-300">Loading...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-medium">Keyterms (Deepgram Vocabulary Boost)</h2>
+    <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-6 shadow-[--shadow-card] space-y-5">
+      <div className="space-y-1">
+        <h2 className="text-sm font-semibold text-oa-black-900">
+          Vocabulary Boost
+        </h2>
+        <p className="text-xs text-oa-black-700">
+          Add church-specific terms to improve Deepgram accuracy
+        </p>
+      </div>
 
       {/* Add new keyterm */}
       <div className="flex gap-2">
@@ -45,61 +58,63 @@ export function KeytermManager() {
           value={newTerm}
           onChange={(e) => setNewTerm(e.target.value)}
           placeholder="e.g. ONE&ALL, Pastor Brian"
-          className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+          className="flex-1 rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-3 py-2.5 text-sm placeholder:text-oa-stone-300 focus:border-oa-yellow-500 focus:outline-none transition-colors"
           onKeyDown={(e) => e.key === "Enter" && addKeyterm()}
         />
         <select
           value={newBoost}
           onChange={(e) => setNewBoost(parseInt(e.target.value))}
-          className="rounded-lg border border-neutral-300 px-2 py-2 text-sm"
+          className="rounded-[--radius-input] border border-oa-stone-200 px-2 py-2.5 text-sm focus:border-oa-yellow-500 focus:outline-none transition-colors"
         >
           {[1, 2, 3, 4, 5].map((b) => (
             <option key={b} value={b}>
-              Boost: {b}
+              +{b}
             </option>
           ))}
         </select>
         <button
           onClick={addKeyterm}
           disabled={!newTerm.trim()}
-          className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 transition-colors disabled:opacity-50"
+          className="rounded-[--radius-button] bg-oa-black-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-oa-black-800 transition-colors duration-150 disabled:opacity-50"
         >
           Add
         </button>
       </div>
 
       {/* Keyterm list */}
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         {keyterms.length === 0 ? (
-          <p className="text-sm text-neutral-400 italic">
-            No keyterms added yet. Add church-specific terms to improve transcription accuracy.
+          <p className="text-sm text-oa-stone-300 italic py-2">
+            No keyterms added yet.
           </p>
         ) : (
           keyterms.map((kt) => (
             <div
               key={kt.id}
-              className="flex items-center gap-3 rounded-lg border border-neutral-200 px-3 py-2"
+              className="flex items-center gap-3 rounded-[--radius-input] border border-oa-stone-200 px-3 py-2.5 hover:bg-oa-stone-100 transition-colors duration-150"
             >
               <button
                 onClick={() => toggleKeyterm(kt.id, kt.active)}
-                className={`w-2 h-2 rounded-full ${
-                  kt.active ? "bg-green-500" : "bg-neutral-300"
+                className={`h-2.5 w-2.5 rounded-full shrink-0 transition-colors duration-150 ${
+                  kt.active ? "bg-green-500" : "bg-oa-stone-300"
                 }`}
                 title={kt.active ? "Active" : "Inactive"}
               />
               <span
                 className={`flex-1 text-sm ${
-                  kt.active ? "" : "text-neutral-400 line-through"
+                  kt.active
+                    ? "text-oa-black-900"
+                    : "text-oa-stone-300 line-through"
                 }`}
               >
                 {kt.term}
               </span>
-              <span className="text-xs text-neutral-400">
-                boost: {kt.boost}
+              <span className="rounded-full bg-oa-stone-100 px-2 py-0.5 text-xs font-medium text-oa-black-700">
+                +{kt.boost}
               </span>
               <button
                 onClick={() => deleteKeyterm(kt.id)}
-                className="text-xs text-red-400 hover:text-red-600"
+                className="text-xs text-oa-stone-300 hover:text-oa-coral transition-colors duration-150"
               >
                 Remove
               </button>

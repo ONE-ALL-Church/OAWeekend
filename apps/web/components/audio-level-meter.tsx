@@ -5,31 +5,48 @@ interface AudioLevelMeterProps {
 }
 
 export function AudioLevelMeter({ level }: AudioLevelMeterProps) {
-  // Convert RMS to a more visual-friendly scale (logarithmic)
-  const db = level > 0 ? 20 * Math.log10(level) : -100;
-  const normalized = Math.max(0, Math.min(1, (db + 60) / 60)); // -60dB to 0dB range
-  const percentage = Math.round(normalized * 100);
+  const dB = level > 0 ? 20 * Math.log10(level) : -100;
+  const normalized = Math.max(0, Math.min(1, (dB + 60) / 60));
+  const pct = Math.round(normalized * 100);
+
+  const color =
+    pct > 85
+      ? "bg-red-500"
+      : pct > 60
+        ? "bg-green-500"
+        : "bg-oa-yellow-500";
+
+  const label =
+    pct > 85 ? "Clipping" : pct > 60 ? "Good" : pct > 20 ? "Low" : "Silent";
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-neutral-500 w-12">Level</span>
-      <div className="flex-1 h-3 bg-neutral-200 rounded-full overflow-hidden">
+    <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-4 shadow-[--shadow-card] space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-oa-black-700">
+          Audio Level
+        </span>
+        <span className="text-xs tabular-nums text-oa-black-700">
+          {pct > 0 ? `${Math.round(dB)} dB` : "—"}{" "}
+          <span className="text-oa-stone-300">&middot;</span>{" "}
+          <span
+            className={
+              pct > 85
+                ? "text-red-500 font-medium"
+                : pct > 60
+                  ? "text-green-600 font-medium"
+                  : "text-oa-stone-300"
+            }
+          >
+            {label}
+          </span>
+        </span>
+      </div>
+      <div className="h-2 rounded-full bg-oa-stone-100 overflow-hidden">
         <div
-          className="h-full transition-all duration-75 rounded-full"
-          style={{
-            width: `${percentage}%`,
-            backgroundColor:
-              percentage > 85
-                ? "#ef4444" // red - clipping
-                : percentage > 60
-                  ? "#22c55e" // green - good
-                  : "#eab308", // yellow - low
-          }}
+          className={`h-full rounded-full transition-all duration-75 ${color}`}
+          style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs text-neutral-500 w-10 text-right">
-        {percentage > 0 ? `${Math.round(db)}dB` : "--"}
-      </span>
     </div>
   );
 }

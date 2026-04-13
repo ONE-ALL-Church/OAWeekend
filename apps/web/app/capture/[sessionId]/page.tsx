@@ -50,23 +50,15 @@ export default function CapturePage({
     onTranscript,
   } = useDeepgram();
 
-  // Wire audio data to Deepgram
   useEffect(() => {
-    onAudioData((pcm) => {
-      sendAudio(pcm);
-    });
+    onAudioData((pcm) => sendAudio(pcm));
   }, [onAudioData, sendAudio]);
 
-  // Wire transcript handler
   useEffect(() => {
     onTranscript((transcript: DeepgramTranscript) => {
       handleTranscript(transcript);
-
       if (transcript.kind === "final") {
-        setRecentTranscripts((prev) => {
-          const next = [...prev, transcript.text];
-          return next.slice(-5);
-        });
+        setRecentTranscripts((prev) => [...prev, transcript.text].slice(-5));
       }
     });
   }, [onTranscript, handleTranscript]);
@@ -75,36 +67,28 @@ export default function CapturePage({
     isStreamingRef.current = false;
     disconnect();
     stopCapture();
-
-    updateSession({
-      status: "ended",
-      endedAt: Date.now(),
-    });
+    updateSession({ status: "ended", endedAt: Date.now() });
   }, [disconnect, stopCapture, updateSession]);
 
-  // Duration countdown timer + auto-stop
+  // Duration countdown + auto-stop
   useEffect(() => {
     if (!session || session.status !== "live") {
       setRemainingMs(null);
       autoStopCalledRef.current = false;
       return;
     }
-
     const userLimit = (session.maxDurationMinutes as number) ?? 120;
     const effectiveLimit = Math.min(userLimit, ABSOLUTE_MAX_DURATION_MINUTES);
     const deadlineMs = (session.startedAt as number) + effectiveLimit * 60_000;
 
     const interval = setInterval(() => {
-      const now = Date.now();
-      const remaining = deadlineMs - now;
+      const remaining = deadlineMs - Date.now();
       setRemainingMs(remaining);
-
       if (remaining <= 0 && !autoStopCalledRef.current) {
         autoStopCalledRef.current = true;
         stopStreaming();
       }
     }, 1000);
-
     return () => clearInterval(interval);
   }, [session, stopStreaming]);
 
@@ -119,64 +103,49 @@ export default function CapturePage({
       .map((k) => `${k.term}:${k.boost}`);
 
     await startCapture();
-
     await connect({
       profanityFilter: session?.profanityFilter ?? true,
       keywords: activeKeyterms,
     });
-
-    updateSession({
-      status: "live",
-      startedAt: Date.now(),
-    });
-  }, [
-    startCapture,
-    connect,
-    updateSession,
-    session?.profanityFilter,
-    keyterms,
-    resetSequence,
-  ]);
+    updateSession({ status: "live", startedAt: Date.now() });
+  }, [startCapture, connect, updateSession, session?.profanityFilter, keyterms, resetSequence]);
 
   const error = audioError || dgError;
 
   if (!session) {
     return (
       <main className="flex flex-1 items-center justify-center">
-        <p className="text-neutral-500">Loading session...</p>
+        <p className="text-sm text-oa-stone-300">Loading session...</p>
       </main>
     );
   }
 
   return (
-    <main className="flex flex-1 flex-col p-6 max-w-2xl mx-auto w-full gap-6">
+    <main className="flex flex-1 flex-col p-6 lg:p-8 max-w-2xl mx-auto w-full gap-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Audio Capture</h1>
-          <p className="text-sm text-neutral-500">
+        <div className="space-y-0.5">
+          <h1 className="text-xl font-bold tracking-tight">Audio Capture</h1>
+          <p className="text-sm text-oa-black-700">
             {session.campusName} &mdash; {session.sermonTitle ?? "Untitled"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 rounded-full bg-oa-white border border-oa-stone-200 px-4 py-2 shadow-[--shadow-card]">
           <div
-            className={`w-2 h-2 rounded-full ${
+            className={`h-2.5 w-2.5 rounded-full ${
               isConnected
                 ? "bg-green-500"
                 : isCapturing
-                  ? "bg-yellow-500 animate-pulse"
-                  : "bg-neutral-300"
+                  ? "bg-oa-yellow-500 animate-pulse"
+                  : "bg-oa-stone-300"
             }`}
           />
-          <span className="text-xs text-neutral-500">
-            {isConnected
-              ? "Connected"
-              : isCapturing
-                ? "Connecting..."
-                : "Idle"}
+          <span className="text-sm font-medium">
+            {isConnected ? "Connected" : isCapturing ? "Connecting..." : "Idle"}
           </span>
           {reconnectCount > 0 && (
-            <span className="text-xs text-yellow-600">
-              (retry {reconnectCount})
+            <span className="text-xs text-oa-yellow-600 font-medium">
+              retry {reconnectCount}
             </span>
           )}
         </div>
@@ -186,23 +155,23 @@ export default function CapturePage({
       {session.status === "live" && remainingMs !== null && (
         <DurationBar
           remainingMs={remainingMs}
-          maxDurationMinutes={
-            Math.min(
-              (session.maxDurationMinutes as number) ?? 120,
-              ABSOLUTE_MAX_DURATION_MINUTES
-            )
-          }
+          maxDurationMinutes={Math.min(
+            (session.maxDurationMinutes as number) ?? 120,
+            ABSOLUTE_MAX_DURATION_MINUTES
+          )}
         />
       )}
 
-      {/* Audio Device Selection */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Audio Input Device</label>
+      {/* Audio Device */}
+      <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-4 shadow-[--shadow-card] space-y-2">
+        <label className="text-xs font-medium text-oa-black-700">
+          Audio Input Device
+        </label>
         <select
           value={selectedDeviceId ?? ""}
           onChange={(e) => selectDevice(e.target.value)}
           disabled={isCapturing}
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none disabled:opacity-50"
+          className="w-full rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-3 py-2.5 text-sm focus:border-oa-yellow-500 focus:outline-none transition-colors disabled:opacity-50"
         >
           {devices.map((d) => (
             <option key={d.deviceId} value={d.deviceId}>
@@ -215,19 +184,19 @@ export default function CapturePage({
       {/* Audio Level */}
       {isCapturing && <AudioLevelMeter level={audioLevel} />}
 
-      {/* Error Display */}
+      {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="rounded-[--radius-card] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      {/* Start/Stop Button */}
+      {/* Start/Stop */}
       <div className="flex flex-col gap-3">
         {needsPermission && (
           <button
             onClick={requestPermission}
-            className="w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
+            className="w-full rounded-[--radius-button] bg-oa-blue py-3.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity duration-150"
           >
             Grant Microphone Access
           </button>
@@ -236,7 +205,7 @@ export default function CapturePage({
           <button
             onClick={startStreaming}
             disabled={!selectedDeviceId}
-            className="w-full rounded-lg bg-green-600 py-3 text-sm font-medium text-white hover:bg-green-500 transition-colors disabled:opacity-50"
+            className="w-full rounded-[--radius-button] bg-green-600 py-3.5 text-sm font-semibold text-white hover:bg-green-500 transition-colors duration-150 disabled:opacity-50"
           >
             Start Capture
           </button>
@@ -244,7 +213,7 @@ export default function CapturePage({
         {isCapturing && (
           <button
             onClick={stopStreaming}
-            className="w-full rounded-lg bg-red-600 py-3 text-sm font-medium text-white hover:bg-red-500 transition-colors"
+            className="w-full rounded-[--radius-button] bg-red-600 py-3.5 text-sm font-semibold text-white hover:bg-red-500 transition-colors duration-150"
           >
             Stop &amp; End Session
           </button>
@@ -252,21 +221,21 @@ export default function CapturePage({
       </div>
 
       {/* Transcript Preview */}
-      <div className="flex-1 space-y-1">
-        <h2 className="text-sm font-medium text-neutral-500">
+      <div className="flex-1 space-y-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-oa-black-700">
           Transcript Preview
         </h2>
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 min-h-[200px]">
+        <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-5 min-h-[200px] shadow-[--shadow-card]">
           {recentTranscripts.length === 0 ? (
-            <p className="text-sm text-neutral-400 italic">
+            <p className="text-sm text-oa-stone-300 italic">
               {isCapturing
                 ? "Listening for audio..."
                 : "Start capture to see transcripts"}
             </p>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {recentTranscripts.map((text, i) => (
-                <p key={i} className="text-sm">
+                <p key={i} className="text-sm leading-relaxed">
                   {text}
                 </p>
               ))}
@@ -276,18 +245,16 @@ export default function CapturePage({
       </div>
 
       {/* Quick Links */}
-      <div className="flex gap-3 text-sm">
+      <div className="flex gap-4 text-sm">
         <button
-          onClick={() =>
-            window.open(`/display/${sessionId}`, "_blank")
-          }
-          className="text-neutral-500 hover:text-neutral-700 underline"
+          onClick={() => window.open(`/display/${sessionId}`, "_blank")}
+          className="text-oa-black-700 hover:text-oa-black-900 underline underline-offset-2 transition-colors duration-150"
         >
           Open Display View
         </button>
         <button
           onClick={() => router.push(`/operator/${sessionId}`)}
-          className="text-neutral-500 hover:text-neutral-700 underline"
+          className="text-oa-black-700 hover:text-oa-black-900 underline underline-offset-2 transition-colors duration-150"
         >
           Operator Panel
         </button>
@@ -306,33 +273,31 @@ function DurationBar({
   const totalMs = maxDurationMinutes * 60_000;
   const elapsed = totalMs - remainingMs;
   const pct = Math.min(100, Math.max(0, (elapsed / totalMs) * 100));
-  const isWarning = remainingMs < 5 * 60_000; // under 5 min
+  const isWarning = remainingMs < 5 * 60_000;
   const isExpired = remainingMs <= 0;
 
   const mins = Math.max(0, Math.floor(remainingMs / 60_000));
   const secs = Math.max(0, Math.floor((remainingMs % 60_000) / 1000));
 
   return (
-    <div className="space-y-1">
+    <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-4 shadow-[--shadow-card] space-y-2">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-neutral-500">
-          Time remaining
-        </span>
+        <span className="font-medium text-oa-black-700">Time remaining</span>
         <span
-          className={
+          className={`font-semibold tabular-nums ${
             isExpired
-              ? "text-red-600 font-medium"
+              ? "text-red-600"
               : isWarning
-                ? "text-amber-600 font-medium"
-                : "text-neutral-600"
-          }
+                ? "text-amber-600"
+                : "text-oa-black-900"
+          }`}
         >
           {isExpired
             ? "Auto-stopping..."
             : `${mins}:${secs.toString().padStart(2, "0")}`}
         </span>
       </div>
-      <div className="h-1.5 rounded-full bg-neutral-200 overflow-hidden">
+      <div className="h-1.5 rounded-full bg-oa-stone-100 overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-1000 ${
             isExpired

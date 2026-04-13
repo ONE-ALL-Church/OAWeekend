@@ -10,29 +10,35 @@ function LoginContent() {
 
   return (
     <main className="flex flex-1 items-center justify-center p-8">
-      <div className="w-full max-w-sm space-y-6 text-center">
-        <div>
-          <h1 className="text-2xl font-bold">OA Weekend</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Sign in with your ONE&amp;ALL account
-          </p>
-        </div>
-        {error && (
-          <div className="space-y-1">
-            <p className="text-sm text-red-600">
-              Sign in failed ({error}). Please try again.
+      <div className="w-full max-w-sm">
+        <div className="rounded-[--radius-card] bg-oa-white p-8 shadow-[--shadow-card] space-y-6">
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight text-oa-black-900">
+              OA Weekend
+            </h1>
+            <p className="text-sm text-oa-black-700">
+              Sign in with your ONE&amp;ALL account
             </p>
-            {detail && (
-              <p className="text-xs text-red-400 break-all">{detail}</p>
-            )}
           </div>
-        )}
-        <a
-          href="/api/auth/login"
-          className="block w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-700 transition-colors"
-        >
-          Sign in with ONE&amp;ALL
-        </a>
+
+          {error && (
+            <div className="rounded-[--radius-badge] bg-red-50 border border-red-100 p-3 space-y-1">
+              <p className="text-sm text-red-700 font-medium">
+                Sign in failed ({error})
+              </p>
+              {detail && (
+                <p className="text-xs text-red-500 break-all">{detail}</p>
+              )}
+            </div>
+          )}
+
+          <a
+            href="/api/auth/login"
+            className="flex items-center justify-center gap-2 w-full rounded-[--radius-button] bg-oa-black-900 py-3.5 text-sm font-semibold text-white hover:bg-oa-black-800 transition-colors duration-150"
+          >
+            Sign in with ONE&amp;ALL
+          </a>
+        </div>
       </div>
     </main>
   );

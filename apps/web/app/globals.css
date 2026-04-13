@@ -1,5 +1,72 @@
 @import "tailwindcss";
 
 @theme inline {
+  /* Typography — Neue Montreal is the brand font, Inter as web fallback */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* ONE&ALL Core Color Tokens */
+  --color-oa-yellow-500: #FFC905;
+  --color-oa-yellow-400: #FFD54F;
+  --color-oa-yellow-600: #E6B400;
+  --color-oa-black-900: #272728;
+  --color-oa-black-800: #3A3A3B;
+  --color-oa-black-700: #4D4D4E;
+  --color-oa-sand-100: #F5EDE3;
+  --color-oa-sand-200: #EBDDCE;
+  --color-oa-sand-300: #D9CBBA;
+  --color-oa-stone-100: #F0EDEC;
+  --color-oa-stone-200: #E0DBD9;
+  --color-oa-stone-300: #C8C3C1;
+  --color-oa-white: #FFFFFF;
+
+  /* Supplemental accents (charts/data only) */
+  --color-oa-blue: #6873B3;
+  --color-oa-coral: #D07A84;
+  --color-oa-pink: #CDA5AC;
+
+  /* Semantic aliases */
+  --color-surface: var(--color-oa-sand-100);
+  --color-surface-card: var(--color-oa-white);
+  --color-surface-elevated: var(--color-oa-stone-100);
+  --color-border: var(--color-oa-stone-200);
+  --color-border-strong: var(--color-oa-stone-300);
+  --color-text-primary: var(--color-oa-black-900);
+  --color-text-secondary: var(--color-oa-black-700);
+  --color-text-muted: var(--color-oa-stone-300);
+  --color-accent: var(--color-oa-yellow-500);
+  --color-accent-hover: var(--color-oa-yellow-600);
+
+  /* Spacing scale (brand: 4,8,12,16,24,32,48,64) */
+  --radius-card: 16px;
+  --radius-button: 12px;
+  --radius-input: 10px;
+  --radius-badge: 6px;
+
+  /* Shadows — low blur, low opacity per brand */
+  --shadow-card: 0 1px 3px 0 rgba(39, 39, 40, 0.04), 0 1px 2px -1px rgba(39, 39, 40, 0.04);
+  --shadow-elevated: 0 4px 12px 0 rgba(39, 39, 40, 0.06), 0 2px 4px -1px rgba(39, 39, 40, 0.04);
+}
+
+/* Base overrides */
+body {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-oa-stone-300);
+  border-radius: 3px;
+}
+
+/* Focus ring — yellow accent */
+*:focus-visible {
+  outline: 2px solid var(--color-oa-yellow-500);
+  outline-offset: 2px;
 }

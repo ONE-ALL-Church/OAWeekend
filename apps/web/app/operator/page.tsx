@@ -19,24 +19,30 @@ export default function OperatorPage() {
   );
 
   return (
-    <main className="flex flex-1 flex-col p-6 max-w-4xl mx-auto w-full gap-8">
+    <main className="flex flex-1 flex-col p-6 lg:p-8 max-w-5xl mx-auto w-full gap-8">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Operator Dashboard</h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            Manage live captioning sessions for ONE&amp;ALL weekend services
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">
+            Operator Dashboard
+          </h1>
+          <p className="text-sm text-oa-black-700">
+            Manage live captioning for ONE&amp;ALL weekend services
           </p>
         </div>
         {user && (
           <div className="flex items-center gap-3">
-            <span className="text-sm text-neutral-500">{user.email}</span>
+            <div className="hidden sm:flex items-center gap-2 rounded-full bg-oa-white border border-oa-stone-200 px-4 py-2 shadow-[--shadow-card]">
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="text-sm text-oa-black-700">{user.email}</span>
+            </div>
             <button
               onClick={() => {
                 db.auth.signOut();
                 document.cookie = "instant_token=; Max-Age=0; Path=/";
                 window.location.href = "/login";
               }}
-              className="text-sm text-neutral-400 hover:text-neutral-600"
+              className="text-sm text-oa-stone-300 hover:text-oa-black-700 transition-colors duration-150"
             >
               Sign out
             </button>
@@ -44,22 +50,27 @@ export default function OperatorPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left column: Sessions */}
-        <div className="space-y-6">
+      {/* Main grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        {/* Left column: Sessions (3/5) */}
+        <div className="lg:col-span-3 space-y-6">
           <SessionPicker />
 
           {/* Active Sessions */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-medium text-neutral-500">
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-oa-black-700">
               Active Sessions
             </h2>
             {isLoading ? (
-              <p className="text-sm text-neutral-400">Loading...</p>
+              <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-6 shadow-[--shadow-card]">
+                <p className="text-sm text-oa-stone-300">Loading...</p>
+              </div>
             ) : activeSessions.length === 0 ? (
-              <p className="text-sm text-neutral-400 italic">
-                No active sessions
-              </p>
+              <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-6 shadow-[--shadow-card]">
+                <p className="text-sm text-oa-stone-300 italic">
+                  No active sessions
+                </p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {activeSessions.map((s) => (
@@ -67,12 +78,12 @@ export default function OperatorPage() {
                 ))}
               </div>
             )}
-          </div>
+          </section>
 
           {/* Recent Sessions */}
           {recentSessions.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-neutral-500">
+            <section className="space-y-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-oa-black-700">
                 Recent Sessions
               </h2>
               <div className="space-y-2">
@@ -80,12 +91,12 @@ export default function OperatorPage() {
                   <SessionCard key={s.id} session={s} />
                 ))}
               </div>
-            </div>
+            </section>
           )}
         </div>
 
-        {/* Right column: Keyterms */}
-        <div>
+        {/* Right column: Keyterms (2/5) */}
+        <div className="lg:col-span-2">
           <KeytermManager />
         </div>
       </div>
@@ -94,36 +105,39 @@ export default function OperatorPage() {
 }
 
 function SessionCard({ session }: { session: Session }) {
-  const statusColor: Record<string, string> = {
-    idle: "bg-neutral-400",
-    live: "bg-green-500 animate-pulse",
-    ended: "bg-red-400",
-    archived: "bg-blue-400",
+  const statusConfig: Record<string, { dot: string; label: string }> = {
+    idle: { dot: "bg-oa-stone-300", label: "Idle" },
+    live: { dot: "bg-green-500 animate-pulse", label: "Live" },
+    ended: { dot: "bg-oa-coral", label: "Ended" },
+    archived: { dot: "bg-oa-blue", label: "Archived" },
   };
 
+  const config = statusConfig[session.status] ?? statusConfig.idle;
+
   const startTime = session.startedAt
-    ? new Date(session.startedAt).toLocaleTimeString()
+    ? new Date(session.startedAt).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      })
     : "";
 
   return (
     <Link
       href={`/operator/${session.id}`}
-      className="flex items-center gap-3 rounded-lg border border-neutral-200 p-3 hover:bg-neutral-50 transition-colors"
+      className="flex items-center gap-4 rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-4 hover:border-oa-stone-300 hover:shadow-[--shadow-elevated] transition-all duration-150 shadow-[--shadow-card]"
     >
-      <div
-        className={`w-2 h-2 rounded-full ${statusColor[session.status] ?? "bg-neutral-400"}`}
-      />
+      <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${config.dot}`} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">
+        <p className="text-sm font-semibold truncate">
           {session.campusName ?? "Unknown"} &mdash;{" "}
           {session.sermonTitle ?? "Untitled"}
         </p>
-        <p className="text-xs text-neutral-400">
+        <p className="text-xs text-oa-black-700 mt-0.5">
           {session.speakerName ?? "Unknown speaker"} &middot; {startTime}
         </p>
       </div>
-      <span className="text-xs capitalize text-neutral-400">
-        {session.status}
+      <span className="shrink-0 rounded-full bg-oa-stone-100 px-3 py-1 text-xs font-medium text-oa-black-700">
+        {config.label}
       </span>
     </Link>
   );

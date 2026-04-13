@@ -49,16 +49,17 @@ export function SessionPicker() {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-neutral-200 p-4">
-      <h2 className="text-sm font-medium">Create New Session</h2>
+    <div className="rounded-[--radius-card] bg-oa-white border border-oa-stone-200 p-6 shadow-[--shadow-card] space-y-5">
+      <h2 className="text-sm font-semibold text-oa-black-900">
+        Create New Session
+      </h2>
 
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs text-neutral-500">Campus</label>
+      <div className="space-y-4">
+        <Field label="Campus">
           <select
             value={campusId}
             onChange={(e) => setCampusId(e.target.value)}
-            className="w-full mt-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+            className="w-full rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-3 py-2.5 text-sm focus:border-oa-yellow-500 focus:outline-none transition-colors"
           >
             {DEFAULT_CAMPUSES.map((c) => (
               <option key={c.id} value={c.id}>
@@ -66,40 +67,33 @@ export function SessionPicker() {
               </option>
             ))}
           </select>
-        </div>
+        </Field>
 
-        <div>
-          <label className="text-xs text-neutral-500">
-            Sermon Title (optional)
-          </label>
+        <Field label="Sermon Title" optional>
           <input
             type="text"
             value={sermonTitle}
             onChange={(e) => setSermonTitle(e.target.value)}
             placeholder="e.g. The Good Shepherd"
-            className="w-full mt-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+            className="w-full rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-3 py-2.5 text-sm placeholder:text-oa-stone-300 focus:border-oa-yellow-500 focus:outline-none transition-colors"
           />
-        </div>
+        </Field>
 
-        <div>
-          <label className="text-xs text-neutral-500">
-            Speaker (optional)
-          </label>
+        <Field label="Speaker" optional>
           <input
             type="text"
             value={speakerName}
             onChange={(e) => setSpeakerName(e.target.value)}
             placeholder="e.g. Pastor Brian"
-            className="w-full mt-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+            className="w-full rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-3 py-2.5 text-sm placeholder:text-oa-stone-300 focus:border-oa-yellow-500 focus:outline-none transition-colors"
           />
-        </div>
+        </Field>
 
-        <div>
-          <label className="text-xs text-neutral-500">Max Duration</label>
+        <Field label="Max Duration" hint="Capture auto-stops after this time">
           <select
             value={maxDurationMinutes}
             onChange={(e) => setMaxDurationMinutes(Number(e.target.value))}
-            className="w-full mt-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+            className="w-full rounded-[--radius-input] border border-oa-stone-200 bg-oa-white px-3 py-2.5 text-sm focus:border-oa-yellow-500 focus:outline-none transition-colors"
           >
             {MAX_DURATION_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -107,19 +101,41 @@ export function SessionPicker() {
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-neutral-400">
-            Capture will auto-stop after this time
-          </p>
-        </div>
+        </Field>
 
         <button
           onClick={createSession}
           disabled={creating}
-          className="w-full rounded-lg bg-neutral-900 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 transition-colors disabled:opacity-50"
+          className="w-full rounded-[--radius-button] bg-oa-yellow-500 py-3 text-sm font-semibold text-oa-black-900 hover:bg-oa-yellow-600 transition-colors duration-150 disabled:opacity-50"
         >
           {creating ? "Creating..." : "Create Session"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  optional,
+  hint,
+  children,
+}: {
+  label: string;
+  optional?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="flex items-baseline gap-1.5 text-xs font-medium text-oa-black-700">
+        {label}
+        {optional && (
+          <span className="text-oa-stone-300 font-normal">optional</span>
+        )}
+      </label>
+      {children}
+      {hint && <p className="text-xs text-oa-stone-300">{hint}</p>}
     </div>
   );
 }
