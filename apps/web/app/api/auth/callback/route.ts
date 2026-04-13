@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     if (!tokenRes.ok) {
       const text = await tokenRes.text();
       const detail = encodeURIComponent(
-        `${tokenRes.status}: ${text.slice(0, 200)} | id=${clientId.slice(0, 8)}... | uri=${redirectUri}`
+        `${tokenRes.status}: ${text.slice(0, 200)}`
       );
       return NextResponse.redirect(
         new URL(`/login?error=token_exchange&detail=${detail}`, request.url)
