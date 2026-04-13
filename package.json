@@ -10,8 +10,5 @@
   },
   "devDependencies": {
     "turbo": "^2"
-  },
-  "dependencies": {
-    "bcryptjs": "^3.0.3"
   }
 }
