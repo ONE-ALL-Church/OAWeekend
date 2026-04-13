@@ -14,8 +14,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       userinfo: "https://www.oneandall.church/Auth/UserInfo",
     },
   ],
-  pages: {
-    signIn: "/login",
-  },
   trustHost: true,
 });
