@@ -22,6 +22,8 @@ interface CalendarGridProps {
   campusFilter: string;
   /** Rock events mapped by weekStart → occurrences for that week */
   eventsByWeek?: Map<string, RockEventOccurrence[]>;
+  /** Whether Rock events are still loading */
+  eventsLoading?: boolean;
 }
 
 interface EditingCell {
@@ -39,6 +41,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
   weeks,
   campusFilter,
   eventsByWeek,
+  eventsLoading,
 }, ref) {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     new Set(),
@@ -169,6 +172,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
                 isEditable={editable}
                 onCellClick={(cell) => setEditingCell(cell)}
                 eventsByWeek={isEventsSection ? eventsByWeek : undefined}
+                eventsLoading={isEventsSection ? eventsLoading : undefined}
               />
             );
           })}
@@ -202,6 +206,7 @@ function SectionBlock({
   isEditable,
   onCellClick,
   eventsByWeek,
+  eventsLoading,
 }: {
   section: CalendarSectionWithRows;
   rows: CalendarRow[];
@@ -212,6 +217,7 @@ function SectionBlock({
   isEditable: boolean;
   onCellClick: (cell: EditingCell) => void;
   eventsByWeek?: Map<string, RockEventOccurrence[]>;
+  eventsLoading?: boolean;
 }) {
   // Split rows: event rows are auto-populated from Rock, campaign rows stay manual
   const eventRowSlugs = new Set([
@@ -220,8 +226,7 @@ function SectionBlock({
     "rc-events",
     "wc-events",
   ]);
-  const hasRockEvents = eventsByWeek && eventsByWeek.size > 0;
-  const manualRows = eventsByWeek
+  const manualRows = eventsByWeek !== undefined
     ? rows.filter((r) => !eventRowSlugs.has(r.slug))
     : rows;
 
@@ -239,11 +244,12 @@ function SectionBlock({
       {isExpanded && (
         <>
           {/* Rock featured events row (replaces manual event rows) */}
-          {eventsByWeek && (
+          {eventsByWeek !== undefined && (
             <RockEventsRow
               weeks={weeks}
               eventsByWeek={eventsByWeek}
-              isLastRow={!hasRockEvents && manualRows.length === 0}
+              isLoading={eventsLoading ?? false}
+              isLastRow={manualRows.length === 0}
             />
           )}
 
@@ -333,10 +339,12 @@ function RowBlock({
 function RockEventsRow({
   weeks,
   eventsByWeek,
+  isLoading,
   isLastRow,
 }: {
   weeks: CalendarWeekWithEntries[];
   eventsByWeek: Map<string, RockEventOccurrence[]>;
+  isLoading: boolean;
   isLastRow: boolean;
 }) {
   const borderClass = isLastRow
@@ -350,8 +358,8 @@ function RockEventsRow({
         className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center gap-1.5`}
       >
         <span>Featured Events</span>
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-oa-yellow-500/20 text-[9px] font-bold text-oa-yellow-600">
-          ⚡
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#6873B3]/15 text-[9px] font-bold text-[#6873B3]">
+          R
         </span>
       </div>
 
@@ -364,22 +372,125 @@ function RockEventsRow({
             key={`rock-events-${week.id}`}
             className={`px-2 py-1.5 text-xs bg-oa-white ${borderClass} border-r border-r-oa-stone-200/20 flex flex-col items-center justify-center gap-1 min-h-[40px]`}
           >
-            {eventsForWeek.length === 0 ? (
+            {isLoading ? (
+              /* Subtle skeleton placeholder */
+              <div className="flex flex-col items-center gap-1 w-full animate-pulse">
+                <div className="h-3 w-16 rounded-[6px] bg-oa-stone-200/40" />
+                <div className="h-3 w-12 rounded-[6px] bg-oa-stone-200/25" />
+              </div>
+            ) : eventsForWeek.length === 0 ? (
               <span className="text-oa-stone-300 text-base">—</span>
             ) : (
               eventsForWeek.map((ev) => (
-                <span
+                <EventPill
                   key={`${ev.eventItemId}-${ev.campusId ?? "all"}`}
-                  className="inline-flex px-2 py-0.5 rounded-[10px] text-[10px] font-semibold bg-[#6873B3]/12 text-[#6873B3] text-center leading-tight max-w-full truncate"
-                  title={ev.summary ?? ev.name}
-                >
-                  {ev.name}
-                </span>
+                  event={ev}
+                />
               ))
             )}
           </div>
         );
       })}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EventPill — single event badge with rich hover card
+// ---------------------------------------------------------------------------
+
+function EventPill({ event }: { event: RockEventOccurrence }) {
+  const [showCard, setShowCard] = useState(false);
+
+  const dateStr = event.nextStartDateTime
+    ? new Date(event.nextStartDateTime).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
+
+  const timeStr = event.nextStartDateTime
+    ? new Date(event.nextStartDateTime).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setShowCard(true)}
+      onMouseLeave={() => setShowCard(false)}
+    >
+      <span className="inline-flex px-2 py-0.5 rounded-[10px] text-[10px] font-semibold bg-[#6873B3]/12 text-[#6873B3] text-center leading-tight max-w-full truncate cursor-default">
+        {event.name}
+      </span>
+
+      {/* Rich hover card */}
+      {showCard && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-[--radius-card] bg-oa-white shadow-[--shadow-elevated] border border-oa-stone-200 overflow-hidden pointer-events-none">
+          {/* Photo banner */}
+          {event.photoUrl && (
+            <div className="h-24 w-full bg-oa-stone-100 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={event.photoUrl}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+
+          <div className="px-3 py-2.5 space-y-1.5">
+            {/* Event name */}
+            <p className="text-xs font-bold text-oa-black-900 leading-tight">
+              {event.name}
+            </p>
+
+            {/* Date & time */}
+            {dateStr && (
+              <div className="flex items-center gap-1.5 text-[11px] text-oa-stone-300">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                  <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M2 6.5h12" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M5 1.5v3M11 1.5v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+                <span>{dateStr}{timeStr ? ` at ${timeStr}` : ""}</span>
+              </div>
+            )}
+
+            {/* Location */}
+            {event.location && (
+              <div className="flex items-center gap-1.5 text-[11px] text-oa-stone-300">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                  <path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.5-2-4.5-4.5-4.5Z" stroke="currentColor" strokeWidth="1.2" />
+                  <circle cx="8" cy="6" r="1.5" stroke="currentColor" strokeWidth="1.2" />
+                </svg>
+                <span className="truncate">{event.location}</span>
+              </div>
+            )}
+
+            {/* Campuses */}
+            {event.campuses && (
+              <div className="flex items-center gap-1.5 text-[11px] text-oa-stone-300">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                  <path d="M8 1.5L2 5.5v9h12v-9L8 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+                  <rect x="6" y="9.5" width="4" height="5" stroke="currentColor" strokeWidth="1.2" />
+                </svg>
+                <span className="truncate">{event.campuses}</span>
+              </div>
+            )}
+
+            {/* Summary */}
+            {event.summary && (
+              <p className="text-[11px] text-oa-stone-300 leading-snug line-clamp-3 pt-0.5 border-t border-oa-stone-200/50">
+                {event.summary}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

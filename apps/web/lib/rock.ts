@@ -92,64 +92,32 @@ async function rockAttributeValues(
   return data;
 }
 
-// --- V1 REST helpers ---
+// --- Event schemas (V2, camelCase) ---
 
-/** GET a V1 REST endpoint with OData filters */
-async function rockGet<T>(
-  path: string,
-  schema: z.ZodType<T>,
-): Promise<T[]> {
-  if (!ROCK_BASE_URL || !ROCK_API_KEY) {
-    throw new Error("Rock RMS not configured");
-  }
-
-  const url = `${ROCK_BASE_URL}${path}`;
-  const res = await fetch(url, {
-    headers: rockHeaders(),
-    next: { revalidate: 300 },
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Rock API error: ${res.status} ${text.slice(0, 200)}`);
-  }
-
-  const data = await res.json();
-  return z.array(schema).parse(data);
-}
-
-// --- Event schemas (V1, PascalCase) ---
-
-const EventCalendarItemSchema = z.object({
-  Id: z.number(),
-  EventCalendarId: z.number(),
-  EventItemId: z.number(),
-  Attributes: z.record(z.unknown()).optional(),
-  AttributeValues: z
-    .record(
-      z.object({ Value: z.string().optional(), TextValue: z.string().optional() }).passthrough(),
-    )
-    .optional(),
+const EventCalendarItemV2Schema = z.object({
+  id: z.number(),
+  eventCalendarId: z.number(),
+  eventItemId: z.number(),
 });
 
-const EventItemSchema = z.object({
-  Id: z.number(),
-  Name: z.string(),
-  Summary: z.string().nullable().optional(),
-  Description: z.string().nullable().optional(),
-  PhotoId: z.number().nullable().optional(),
-  IsActive: z.boolean().optional(),
-  IsApproved: z.boolean().optional(),
-  DetailsUrl: z.string().nullable().optional(),
+const EventItemV2Schema = z.object({
+  id: z.number(),
+  name: z.string(),
+  summary: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  photoId: z.number().nullable().optional(),
+  isActive: z.boolean().optional(),
+  isApproved: z.boolean().optional(),
+  detailsUrl: z.string().nullable().optional(),
 });
 
-const EventItemOccurrenceSchema = z.object({
-  Id: z.number(),
-  EventItemId: z.number(),
-  CampusId: z.number().nullable().optional(),
-  NextStartDateTime: z.string().nullable().optional(),
-  Location: z.string().nullable().optional(),
-  Note: z.string().nullable().optional(),
+const EventItemOccurrenceV2Schema = z.object({
+  id: z.number(),
+  eventItemId: z.number(),
+  campusId: z.number().nullable().optional(),
+  nextStartDateTime: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
 });
 
 // --- Public types ---
@@ -160,10 +128,12 @@ export interface RockFeaturedEvent {
   summary: string | null;
   photoUrl: string | null;
   detailsUrl: string | null;
+  campuses: string | null; // e.g. "San Dimas Campus, Rancho Campus"
   occurrences: Array<{
     occurrenceId: number;
     campusId: number | null;
     nextStartDateTime: string | null;
+    location: string | null;
   }>;
 }
 
@@ -224,71 +194,107 @@ export async function getWeekendServices(): Promise<WeekendService[]> {
 }
 
 /**
- * Fetch all Featured Events from Rock Calendar 1 (Public).
+ * Fetch all Featured Events from Rock Calendar 1 (Public) using V2 API.
  *
- * Uses 3 bulk fetches (not per-event) for efficiency:
- *  1. EventCalendarItems for calendar 1 → filter for Featured attribute
- *  2. All active EventItems (bulk)
- *  3. All EventItemOccurrences with a future NextStartDateTime (bulk)
- *  4. Join client-side by EventItemId
+ * 1. V2 bulk fetch EventCalendarItems for calendar 1
+ * 2. Fetch attributes for each to find Featured flag + ForCampuses
+ * 3. V2 bulk fetch active EventItems + EventItemOccurrences with future dates
+ * 4. Join client-side by EventItemId
  */
 export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
-  // Step 1: Get all calendar items for calendar 1 with attributes loaded
-  const calendarItems = await rockGet(
-    "/api/EventCalendarItems?$filter=EventCalendarId eq 1&loadAttributes=simple",
-    EventCalendarItemSchema,
+  // Step 1: Get all calendar items for calendar 1 via V2
+  const calendarItems = await rockSearch(
+    "eventcalendaritems",
+    { where: "EventCalendarId == 1", limit: 500 },
+    EventCalendarItemV2Schema,
   );
 
-  // Step 2: Filter for Featured
+  // Step 2: Fetch attributes for each calendar item to find Featured flag
+  // Batch in groups of 20 to avoid overwhelming the API
+  const calItemAttrs = new Map<
+    number,
+    Record<string, { value: string; textValue: string }>
+  >();
+
+  const batchSize = 20;
+  for (let i = 0; i < calendarItems.length; i += batchSize) {
+    const batch = calendarItems.slice(i, i + batchSize);
+    const results = await Promise.all(
+      batch.map(async (item) => {
+        const attrs = await rockAttributeValues("eventcalendaritems", item.id);
+        return { id: item.id, eventItemId: item.eventItemId, attrs };
+      }),
+    );
+    for (const r of results) {
+      calItemAttrs.set(r.id, r.attrs);
+    }
+  }
+
+  // Filter for Featured
   const featured = calendarItems.filter((item) => {
-    const val = item.AttributeValues?.FeaturedEvent?.Value;
+    const attrs = calItemAttrs.get(item.id);
+    const val = attrs?.FeaturedEvent?.value;
     return val === "value1" || val === "True" || val === "true";
   });
 
   if (featured.length === 0) return [];
 
-  const featuredEventIds = new Set(featured.map((f) => f.EventItemId));
+  const featuredEventIds = new Set(featured.map((f) => f.eventItemId));
 
-  // Step 3: Bulk fetch active EventItems + future occurrences in parallel
+  // Build a map of eventItemId → ForCampuses text from calendar item attrs
+  const campusesByEventId = new Map<number, string>();
+  for (const item of featured) {
+    const attrs = calItemAttrs.get(item.id);
+    const campusText = attrs?.ForCampuses?.textValue;
+    if (campusText) {
+      campusesByEventId.set(item.eventItemId, campusText);
+    }
+  }
+
+  // Step 3: Bulk fetch active EventItems + future occurrences via V2
   const [allEventItems, allOccurrences] = await Promise.all([
-    rockGet(
-      "/api/EventItems?$filter=IsActive eq true",
-      EventItemSchema,
+    rockSearch(
+      "eventitems",
+      { where: "IsActive == true", limit: 1000 },
+      EventItemV2Schema,
     ),
-    rockGet(
-      "/api/EventItemOccurrences?$filter=NextStartDateTime ne null",
-      EventItemOccurrenceSchema,
+    rockSearch(
+      "eventitemoccurrences",
+      { where: "NextStartDateTime != null", limit: 2000 },
+      EventItemOccurrenceV2Schema,
     ),
   ]);
 
-  // Index occurrences by EventItemId
-  const occurrencesByEvent = new Map<number, typeof allOccurrences>();
+  // Index occurrences by eventItemId
+  const occurrencesByEvent = new Map<number, (typeof allOccurrences)>();
   for (const occ of allOccurrences) {
-    if (!featuredEventIds.has(occ.EventItemId)) continue;
-    const list = occurrencesByEvent.get(occ.EventItemId) ?? [];
+    if (!featuredEventIds.has(occ.eventItemId)) continue;
+    const list = occurrencesByEvent.get(occ.eventItemId) ?? [];
     list.push(occ);
-    occurrencesByEvent.set(occ.EventItemId, list);
+    occurrencesByEvent.set(occ.eventItemId, list);
   }
 
   // Step 4: Build results — only featured + active events
   const results: RockFeaturedEvent[] = [];
   for (const event of allEventItems) {
-    if (!featuredEventIds.has(event.Id)) continue;
+    if (!featuredEventIds.has(event.id)) continue;
 
-    const occs = occurrencesByEvent.get(event.Id) ?? [];
+    const occs = occurrencesByEvent.get(event.id) ?? [];
 
     results.push({
-      eventItemId: event.Id,
-      name: event.Name,
-      summary: event.Summary ?? null,
-      photoUrl: event.PhotoId
-        ? `${ROCK_BASE_URL}/GetImage.ashx?Id=${event.PhotoId}`
+      eventItemId: event.id,
+      name: event.name,
+      summary: event.summary ?? null,
+      photoUrl: event.photoId
+        ? `${ROCK_BASE_URL}/GetImage.ashx?Id=${event.photoId}`
         : null,
-      detailsUrl: event.DetailsUrl ?? null,
+      detailsUrl: event.detailsUrl ?? null,
+      campuses: campusesByEventId.get(event.id) ?? null,
       occurrences: occs.map((o) => ({
-        occurrenceId: o.Id,
-        campusId: o.CampusId ?? null,
-        nextStartDateTime: o.NextStartDateTime ?? null,
+        occurrenceId: o.id,
+        campusId: o.campusId ?? null,
+        nextStartDateTime: o.nextStartDateTime ?? null,
+        location: o.location ?? null,
       })),
     });
   }

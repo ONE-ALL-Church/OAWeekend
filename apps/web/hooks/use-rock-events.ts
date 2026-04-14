@@ -7,6 +7,8 @@ export interface RockEventOccurrence {
   name: string;
   summary: string | null;
   photoUrl: string | null;
+  campuses: string | null;
+  location: string | null;
   campusId: number | null;
   nextStartDateTime: string | null;
 }
@@ -47,6 +49,8 @@ export function useRockEvents(): RockEventsState {
               name: ev.name,
               summary: ev.summary ?? null,
               photoUrl: ev.photoUrl ?? null,
+              campuses: ev.campuses ?? null,
+              location: occ.location ?? null,
               campusId: occ.campusId ?? null,
               nextStartDateTime: occ.nextStartDateTime ?? null,
             });

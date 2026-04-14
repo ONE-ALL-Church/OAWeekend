@@ -30,7 +30,7 @@ export default function CalendarPage() {
   );
   const latestWeek = useLatestCalendarWeek();
   const { campuses } = useRockData();
-  const { events: rockEvents } = useRockEvents();
+  const { events: rockEvents, isLoading: eventsLoading } = useRockEvents();
   const weekStarts = weeks.map((w) => w.weekStart);
   const eventsByWeek = useEventsByWeek(rockEvents, weekStarts);
 
@@ -120,6 +120,7 @@ export default function CalendarPage() {
           weeks={weeks}
           campusFilter={campus}
           eventsByWeek={eventsByWeek}
+          eventsLoading={eventsLoading}
         />
       )}
     </main>
