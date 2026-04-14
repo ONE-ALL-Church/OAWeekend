@@ -107,9 +107,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Use PersonId as the stable InstantDB identity — it is unique per person
-    // and survives PersonAlias merges. Email is mutable and non-unique in Rock.
-    const instantToken = await adminDb.auth.createToken({ id: personId.toString() });
+    // Use the OIDC sub (PersonAlias GUID) as the InstantDB identity — it is
+    // a valid UUID, immutable, and unique. Email is mutable and non-unique in Rock.
+    const instantToken = await adminDb.auth.createToken({ id: sub });
 
     const response = NextResponse.redirect(new URL("/operator", request.url));
 
