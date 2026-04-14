@@ -54,13 +54,25 @@ export default function CalendarPage() {
   }, []);
 
   const handleAddWeek = useCallback(async () => {
-    if (weeks.length === 0) return;
-    const lastWeek = weeks[weeks.length - 1]!;
-    const lastDate = new Date(lastWeek.weekStart + "T00:00:00");
-    lastDate.setDate(lastDate.getDate() + 7);
-    const nextWeekStart = lastDate.toISOString().slice(0, 10);
+    let nextWeekStart: string;
+
+    if (weeks.length === 0) {
+      // No weeks visible — create one for the Saturday in the anchor month
+      const anchor = new Date(anchorYear, anchorMonth, 1);
+      const day = anchor.getDay();
+      // Find the first Saturday on or after the 1st
+      const daysUntilSat = (6 - day + 7) % 7;
+      anchor.setDate(anchor.getDate() + daysUntilSat);
+      nextWeekStart = anchor.toISOString().slice(0, 10);
+    } else {
+      const lastWeek = weeks[weeks.length - 1]!;
+      const lastDate = new Date(lastWeek.weekStart + "T00:00:00");
+      lastDate.setDate(lastDate.getDate() + 7);
+      nextWeekStart = lastDate.toISOString().slice(0, 10);
+    }
+
     await createCalendarWeek({ weekStart: nextWeekStart });
-  }, [weeks]);
+  }, [weeks, anchorYear, anchorMonth]);
 
   if (!user) {
     return (
