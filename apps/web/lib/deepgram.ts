@@ -1,9 +1,9 @@
 /**
  * Creates a temporary Deepgram API key scoped to usage only.
  *
- * Requires DEEPGRAM_API_KEY and DEEPGRAM_PROJECT_ID to be set.
- * If DEEPGRAM_PROJECT_ID is not configured, falls back to the main key
- * (acceptable when the endpoint is auth-gated by middleware).
+ * Requires both DEEPGRAM_API_KEY and DEEPGRAM_PROJECT_ID to be set.
+ * Never falls back to the main API key — that would expose a permanent,
+ * fully-privileged key to the browser.
  */
 export async function createTemporaryDeepgramKey(): Promise<string> {
   const apiKey = process.env.DEEPGRAM_API_KEY;
@@ -11,11 +11,9 @@ export async function createTemporaryDeepgramKey(): Promise<string> {
 
   const projectId = process.env.DEEPGRAM_PROJECT_ID;
   if (!projectId) {
-    console.warn(
-      "[deepgram] DEEPGRAM_PROJECT_ID not set — returning main API key. " +
-        "Set DEEPGRAM_PROJECT_ID to enable short-lived scoped keys."
+    throw new Error(
+      "DEEPGRAM_PROJECT_ID is required. Set it to enable short-lived scoped keys."
     );
-    return apiKey.trim();
   }
 
   const res = await fetch(
@@ -35,10 +33,9 @@ export async function createTemporaryDeepgramKey(): Promise<string> {
   );
 
   if (!res.ok) {
-    console.error(
-      `[deepgram] Failed to create temp key (${res.status}), falling back to main key`
+    throw new Error(
+      `[deepgram] Failed to create temp key (${res.status}). Check DEEPGRAM_API_KEY and DEEPGRAM_PROJECT_ID.`
     );
-    return apiKey.trim();
   }
 
   const data = await res.json();

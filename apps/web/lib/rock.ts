@@ -120,13 +120,15 @@ const GroupMemberSchema = z.object({
 export async function isAuthorizedGroupMember(sub: string): Promise<boolean> {
   const groupId = process.env.ROCK_AUTH_GROUP_ID ?? "2";
 
-  // Rock OIDC sub is the PersonAliasId (numeric)
+  // Rock OIDC sub is the PersonAliasId (numeric).
+  // Safe to interpolate — parseInt guarantees numeric output.
   const aliasId = parseInt(sub, 10);
   if (isNaN(aliasId) || aliasId <= 0) return false;
 
   // Step 1: resolve PersonAliasId → PersonId
+  // V2 entity name is "personaliases" (plural), not "personalias"
   const aliases = await rockSearch(
-    "personalias",
+    "personaliases",
     { where: `Id == ${aliasId}`, limit: 1 },
     PersonAliasSchema
   );

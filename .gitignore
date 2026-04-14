@@ -36,3 +36,6 @@ Thumbs.db
 # vercel
 .vercel/
 .vercel
+
+# claude code local settings (may contain tokens in permission strings)
+.claude/settings.local.json
