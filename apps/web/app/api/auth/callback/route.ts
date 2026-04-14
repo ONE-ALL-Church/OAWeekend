@@ -106,9 +106,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Use the immutable OIDC sub (PersonAlias GUID) as the InstantDB identity —
-    // never email, which is mutable and non-unique in Rock.
-    const instantToken = await adminDb.auth.createToken(sub);
+    // InstantDB createToken expects an email address as the identity.
+    const instantToken = await adminDb.auth.createToken(email);
 
     const response = NextResponse.redirect(new URL("/operator", request.url));
 
