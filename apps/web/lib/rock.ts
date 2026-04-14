@@ -122,13 +122,21 @@ const EventItemOccurrenceV2Schema = z.object({
 
 // --- Public types ---
 
+export interface RockCallToAction {
+  label: string;
+  url: string;
+}
+
 export interface RockFeaturedEvent {
   eventItemId: number;
   name: string;
   summary: string | null;
   photoUrl: string | null;
   detailsUrl: string | null;
-  campuses: string | null; // e.g. "San Dimas Campus, Rancho Campus"
+  campuses: string | null;
+  campusList: string[];          // individual campus names
+  ministry: string | null;       // e.g. "Care, Community"
+  callsToAction: RockCallToAction[];
   occurrences: Array<{
     occurrenceId: number;
     campusId: number | null;
@@ -241,14 +249,36 @@ export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
 
   const featuredEventIds = new Set(featured.map((f) => f.eventItemId));
 
-  // Build a map of eventItemId → ForCampuses text from calendar item attrs
-  const campusesByEventId = new Map<number, string>();
+  // Build maps of eventItemId → enriched attribute data
+  const enrichedAttrs = new Map<number, {
+    campuses: string | null;
+    campusList: string[];
+    ministry: string | null;
+    callsToAction: RockCallToAction[];
+  }>();
   for (const item of featured) {
     const attrs = calItemAttrs.get(item.id);
-    const campusText = attrs?.ForCampuses?.textValue;
-    if (campusText) {
-      campusesByEventId.set(item.eventItemId, campusText);
-    }
+    const campusText = attrs?.ForCampuses?.textValue || null;
+    const campusList = campusText
+      ? campusText.split(",").map((c) => c.trim()).filter(Boolean)
+      : [];
+    const ministry = attrs?.ForMinistry?.textValue || null;
+    const ctaRaw = attrs?.CallsToAction?.value || "";
+    const callsToAction: RockCallToAction[] = ctaRaw
+      .split("|")
+      .filter(Boolean)
+      .map((pair) => {
+        const [label, url] = pair.split("^").map((s) => s.trim());
+        return label && url ? { label, url } : null;
+      })
+      .filter((c): c is RockCallToAction => c !== null);
+
+    enrichedAttrs.set(item.eventItemId, {
+      campuses: campusText,
+      campusList,
+      ministry,
+      callsToAction,
+    });
   }
 
   // Step 3: Bulk fetch active EventItems + future occurrences via V2
@@ -280,6 +310,7 @@ export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
     if (!featuredEventIds.has(event.id)) continue;
 
     const occs = occurrencesByEvent.get(event.id) ?? [];
+    const enriched = enrichedAttrs.get(event.id);
 
     results.push({
       eventItemId: event.id,
@@ -289,7 +320,10 @@ export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
         ? `${ROCK_BASE_URL}/GetImage.ashx?Id=${event.photoId}`
         : null,
       detailsUrl: event.detailsUrl ?? null,
-      campuses: campusesByEventId.get(event.id) ?? null,
+      campuses: enriched?.campuses ?? null,
+      campusList: enriched?.campusList ?? [],
+      ministry: enriched?.ministry ?? null,
+      callsToAction: enriched?.callsToAction ?? [],
       occurrences: occs.map((o) => ({
         occurrenceId: o.id,
         campusId: o.campusId ?? null,

@@ -10,7 +10,7 @@ import type {
 } from "@/lib/instant";
 import { buildEntryMap } from "@/hooks/use-calendar";
 import { useUserEditableSections } from "@/hooks/use-calendar-roles";
-import type { RockEventOccurrence } from "@/hooks/use-rock-events";
+import type { RockEventOccurrence, CategorizedWeekEvents } from "@/hooks/use-rock-events";
 import { CalendarSectionHeader } from "./calendar-section-header";
 import { CalendarCell } from "./calendar-cell";
 import { CellEditor } from "./cell-editor";
@@ -20,8 +20,8 @@ interface CalendarGridProps {
   sections: CalendarSectionWithRows[];
   weeks: CalendarWeekWithEntries[];
   campusFilter: string;
-  /** Rock events mapped by weekStart → occurrences for that week */
-  eventsByWeek?: Map<string, RockEventOccurrence[]>;
+  /** Rock events mapped by weekStart → categorized event lists */
+  eventsByWeek?: Map<string, CategorizedWeekEvents>;
   /** Whether Rock events are still loading */
   eventsLoading?: boolean;
 }
@@ -216,7 +216,7 @@ function SectionBlock({
   onToggle: () => void;
   isEditable: boolean;
   onCellClick: (cell: EditingCell) => void;
-  eventsByWeek?: Map<string, RockEventOccurrence[]>;
+  eventsByWeek?: Map<string, CategorizedWeekEvents>;
   eventsLoading?: boolean;
 }) {
   // Split rows: event rows are auto-populated from Rock, campaign rows stay manual
@@ -229,6 +229,13 @@ function SectionBlock({
   const manualRows = eventsByWeek !== undefined
     ? rows.filter((r) => !eventRowSlugs.has(r.slug))
     : rows;
+
+  const eventRows: Array<{ label: string; category: keyof CategorizedWeekEvents }> = [
+    { label: "All Church Events", category: "all-church" },
+    { label: "San Dimas Events", category: "san-dimas" },
+    { label: "Rancho Events", category: "rancho" },
+    { label: "West Covina Events", category: "west-covina" },
+  ];
 
   return (
     <>
@@ -243,15 +250,19 @@ function SectionBlock({
 
       {isExpanded && (
         <>
-          {/* Rock featured events row (replaces manual event rows) */}
-          {eventsByWeek !== undefined && (
-            <RockEventsRow
-              weeks={weeks}
-              eventsByWeek={eventsByWeek}
-              isLoading={eventsLoading ?? false}
-              isLastRow={manualRows.length === 0}
-            />
-          )}
+          {/* Rock featured event rows — one per category matching Google Sheet */}
+          {eventsByWeek !== undefined &&
+            eventRows.map((er, idx) => (
+              <RockEventsRow
+                key={er.category}
+                label={er.label}
+                category={er.category}
+                weeks={weeks}
+                eventsByWeek={eventsByWeek}
+                isLoading={eventsLoading ?? false}
+                isLastRow={manualRows.length === 0 && idx === eventRows.length - 1}
+              />
+            ))}
 
           {/* Manual rows (campaigns, or all rows if not events section) */}
           {manualRows.map((row, rowIdx) => {
@@ -337,13 +348,17 @@ function RowBlock({
 // ---------------------------------------------------------------------------
 
 function RockEventsRow({
+  label,
+  category,
   weeks,
   eventsByWeek,
   isLoading,
   isLastRow,
 }: {
+  label: string;
+  category: keyof CategorizedWeekEvents;
   weeks: CalendarWeekWithEntries[];
-  eventsByWeek: Map<string, RockEventOccurrence[]>;
+  eventsByWeek: Map<string, CategorizedWeekEvents>;
   isLoading: boolean;
   isLastRow: boolean;
 }) {
@@ -357,33 +372,32 @@ function RockEventsRow({
       <div
         className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center gap-1.5`}
       >
-        <span>Featured Events</span>
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#6873B3]/15 text-[9px] font-bold text-[#6873B3]">
+        <span>{label}</span>
+        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#6873B3]/12 text-[8px] font-bold text-[#6873B3]">
           R
         </span>
       </div>
 
       {/* Cells */}
       {weeks.map((week) => {
-        const eventsForWeek = eventsByWeek.get(week.weekStart) ?? [];
+        const weekData = eventsByWeek.get(week.weekStart);
+        const eventsForRow = weekData ? weekData[category] : [];
 
         return (
           <div
-            key={`rock-events-${week.id}`}
-            className={`px-2 py-1.5 text-xs bg-oa-white ${borderClass} border-r border-r-oa-stone-200/20 flex flex-col items-center justify-center gap-1 min-h-[40px]`}
+            key={`rock-${category}-${week.id}`}
+            className={`px-1.5 py-1.5 text-xs bg-oa-white ${borderClass} border-r border-r-oa-stone-200/20 flex flex-col items-center justify-center gap-1 min-h-[40px]`}
           >
             {isLoading ? (
-              /* Subtle skeleton placeholder */
               <div className="flex flex-col items-center gap-1 w-full animate-pulse">
-                <div className="h-3 w-16 rounded-[6px] bg-oa-stone-200/40" />
-                <div className="h-3 w-12 rounded-[6px] bg-oa-stone-200/25" />
+                <div className="h-3 w-14 rounded-[6px] bg-oa-stone-200/40" />
               </div>
-            ) : eventsForWeek.length === 0 ? (
-              <span className="text-oa-stone-300 text-base">—</span>
+            ) : eventsForRow.length === 0 ? (
+              <span className="text-oa-stone-300/60 text-[11px]">—</span>
             ) : (
-              eventsForWeek.map((ev) => (
+              eventsForRow.map((ev) => (
                 <EventPill
-                  key={`${ev.eventItemId}-${ev.campusId ?? "all"}`}
+                  key={`${ev.eventItemId}`}
                   event={ev}
                 />
               ))
@@ -404,9 +418,10 @@ function EventPill({ event }: { event: RockEventOccurrence }) {
 
   const dateStr = event.nextStartDateTime
     ? new Date(event.nextStartDateTime).toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
+        weekday: "long",
+        month: "long",
         day: "numeric",
+        year: "numeric",
       })
     : null;
 
@@ -429,64 +444,105 @@ function EventPill({ event }: { event: RockEventOccurrence }) {
 
       {/* Rich hover card */}
       {showCard && (
-        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-[--radius-card] bg-oa-white shadow-[--shadow-elevated] border border-oa-stone-200 overflow-hidden pointer-events-none">
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 rounded-[--radius-card] bg-oa-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-oa-stone-200 overflow-hidden pointer-events-auto">
           {/* Photo banner */}
           {event.photoUrl && (
-            <div className="h-24 w-full bg-oa-stone-100 overflow-hidden">
+            <div className="h-32 w-full bg-oa-stone-100 overflow-hidden relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={event.photoUrl}
                 alt=""
                 className="w-full h-full object-cover"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+              <p className="absolute bottom-2 left-3 right-3 text-sm font-bold text-white leading-tight drop-shadow-sm">
+                {event.name}
+              </p>
             </div>
           )}
 
-          <div className="px-3 py-2.5 space-y-1.5">
-            {/* Event name */}
-            <p className="text-xs font-bold text-oa-black-900 leading-tight">
-              {event.name}
-            </p>
+          <div className="px-3.5 py-3 space-y-2">
+            {/* Event name (only if no photo) */}
+            {!event.photoUrl && (
+              <p className="text-sm font-bold text-oa-black-900 leading-tight">
+                {event.name}
+              </p>
+            )}
 
             {/* Date & time */}
             {dateStr && (
-              <div className="flex items-center gap-1.5 text-[11px] text-oa-stone-300">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="shrink-0">
+              <div className="flex items-start gap-2 text-xs text-oa-black-900">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5 text-[#6873B3]">
                   <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
                   <path d="M2 6.5h12" stroke="currentColor" strokeWidth="1.2" />
                   <path d="M5 1.5v3M11 1.5v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 </svg>
-                <span>{dateStr}{timeStr ? ` at ${timeStr}` : ""}</span>
+                <div>
+                  <p className="font-medium">{dateStr}</p>
+                  {timeStr && <p className="text-oa-stone-300 text-[11px]">{timeStr}</p>}
+                </div>
               </div>
             )}
 
             {/* Location */}
             {event.location && (
-              <div className="flex items-center gap-1.5 text-[11px] text-oa-stone-300">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="shrink-0">
+              <div className="flex items-start gap-2 text-xs text-oa-black-900">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5 text-[#6873B3]">
                   <path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.5-2-4.5-4.5-4.5Z" stroke="currentColor" strokeWidth="1.2" />
                   <circle cx="8" cy="6" r="1.5" stroke="currentColor" strokeWidth="1.2" />
                 </svg>
-                <span className="truncate">{event.location}</span>
+                <p>{event.location}</p>
               </div>
             )}
 
             {/* Campuses */}
             {event.campuses && (
-              <div className="flex items-center gap-1.5 text-[11px] text-oa-stone-300">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="shrink-0">
+              <div className="flex items-start gap-2 text-xs text-oa-black-900">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5 text-[#6873B3]">
                   <path d="M8 1.5L2 5.5v9h12v-9L8 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
                   <rect x="6" y="9.5" width="4" height="5" stroke="currentColor" strokeWidth="1.2" />
                 </svg>
-                <span className="truncate">{event.campuses}</span>
+                <p>{event.campuses}</p>
+              </div>
+            )}
+
+            {/* Ministry tags */}
+            {event.ministry && (
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {event.ministry.split(",").map((m, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex px-2 py-0.5 rounded-[10px] text-[10px] font-medium bg-oa-yellow-500/15 text-oa-yellow-600"
+                  >
+                    {m.trim()}
+                  </span>
+                ))}
               </div>
             )}
 
             {/* Summary */}
             {event.summary && (
-              <p className="text-[11px] text-oa-stone-300 leading-snug line-clamp-3 pt-0.5 border-t border-oa-stone-200/50">
+              <p className="text-[11px] text-oa-stone-300 leading-relaxed pt-1 border-t border-oa-stone-200/50">
                 {event.summary}
               </p>
+            )}
+
+            {/* Calls to action */}
+            {event.callsToAction.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-oa-stone-200/50">
+                {event.callsToAction.map((cta, i) => (
+                  <a
+                    key={i}
+                    href={cta.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex px-2.5 py-1 rounded-[--radius-button] text-[10px] font-semibold bg-[#6873B3] text-white hover:bg-[#5a64a0] transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {cta.label}
+                  </a>
+                ))}
+              </div>
             )}
           </div>
         </div>
