@@ -38,9 +38,9 @@ export default function OperatorPage() {
               <span className="text-sm text-oa-black-700">{user.email}</span>
             </div>
             <button
-              onClick={() => {
+              onClick={async () => {
                 db.auth.signOut();
-                document.cookie = "instant_token=; Max-Age=0; Path=/";
+                await fetch("/api/auth/logout", { method: "POST" });
                 window.location.href = "/login";
               }}
               className="text-sm text-oa-stone-300 hover:text-oa-black-700 transition-colors duration-150"

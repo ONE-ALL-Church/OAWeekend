@@ -4,12 +4,9 @@ You are Claude Code. Build this project from scratch. Read this entire document 
 
 ## Who this is for
 
-ONE&ALL Church (oneandall.church) runs weekend services across three campuses:
-- **Main campus**: Saturday evening + three Sunday services
-- **Campus 2**: Sunday only
-- **Campus 3**: Sunday only
+The church runs weekend services across multiple campuses, each with Saturday evening and/or Sunday services.
 
-Each campus has a full production setup with a soundboard. The digital director (Brian Davis) wants to replace a paid live-captioning service with a self-built, AI-powered system that is cheaper, more curated to church vocabulary, and extensible toward archival and real-time translation.
+Each campus has a full production setup with a soundboard. The goal is to replace a paid live-captioning service with a self-built, AI-powered system that is cheaper, more curated to church vocabulary, and extensible toward archival and real-time translation.
 
 ## The three phases
 
@@ -57,7 +54,7 @@ Fan the transcript stream through a translation model (GPT-4o or Gemini), and op
 | Speech-to-text | **Deepgram Nova-3** streaming API | ~150–300ms first-word latency, keyterm prompting for proper nouns, cheap (~$0.0077/min). |
 | Realtime data + sync | **InstantDB** | Fan-out to many displays, offline-cache resilience, built-in persistence. |
 | Frontend | **Next.js 15 (App Router) + TypeScript + Tailwind** | Polished, fast to build, great InstantDB SDK. |
-| Archive blob storage | **Cloudflare R2** (`cdn.oneandall.church`) | Already in use at the church. |
+| Archive blob storage | **Cloudflare R2** | Already in use at the church. |
 | System of record | **Rock RMS** via existing MCP / REST API | Source of truth for Campus, Schedule, ContentChannelItem (sermon). |
 | Capture client | **Python + sounddevice + websockets** | Runs on a dedicated laptop at each campus soundboard. |
 
@@ -177,7 +174,7 @@ Keep the InstantDB schema in one file so Modal and Next can both reference shape
 
 Use Deepgram's Python SDK (`deepgram-sdk>=3`). Use `instant-client` Python SDK if stable; otherwise hit the InstantDB REST admin API. Use `boto3` with R2's S3-compatible endpoint.
 
-Secrets via `modal.Secret`: `DEEPGRAM_API_KEY`, `INSTANT_APP_ID`, `INSTANT_ADMIN_TOKEN`, `R2_ACCESS_KEY`, `R2_SECRET`, `R2_ACCOUNT_ID`, `R2_BUCKET`, `ROCK_API_KEY`, `ROCK_BASE_URL`, `CAPTURE_AUTH_TOKEN`.
+Secrets via `modal.Secret`: see `.env.example` for the full list of required environment variables.
 
 ## Capture client — detailed spec
 
@@ -221,7 +218,7 @@ Styling: Tailwind. High-contrast white-on-black by default. Must be readable fro
 
 ## Rock RMS integration
 
-Brian already has Rock MCP access and knows the schema. Use Rock's REST API (`{ROCK_BASE_URL}/api/`) with his API key.
+Use Rock's REST API (`{ROCK_BASE_URL}/api/`) with the configured API key.
 
 Needed endpoints:
 - **GET Campuses**: `/api/Campuses?$select=Id,Name,Guid` — for capture client campus picker and operator UI
@@ -231,7 +228,7 @@ Needed endpoints:
 
 Write `apps/web/lib/rock.ts` with typed helpers: `getCampuses()`, `getTodaysServices(campusId)`, `getActiveSermonItem(campusId)`.
 
-Document in `docs/rock-integration.md` exactly what Brian needs to create in Rock before first run.
+Document in `docs/rock-integration.md` exactly what needs to be created in Rock before first run.
 
 ## Environment / setup
 
@@ -252,11 +249,11 @@ INSTANT_ADMIN_TOKEN=
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY=
 R2_SECRET=
-R2_BUCKET=oneandall-transcripts
-R2_PUBLIC_BASE=https://cdn.oneandall.church/transcripts
+R2_BUCKET=
+R2_PUBLIC_BASE=
 
 # Rock RMS
-ROCK_BASE_URL=https://rock.oneandall.church
+ROCK_BASE_URL=
 ROCK_API_KEY=
 
 # Capture auth (shared secret)
@@ -319,4 +316,4 @@ Get each step working end-to-end before moving to the next. After step 5 the sys
 
 Begin by creating the monorepo structure, `README.md`, `.env.example`, `pnpm-workspace.yaml`, and the Next.js + Modal skeleton apps. Then propose the InstantDB schema as code and wait for approval before proceeding to step 3. After approval, build straight through the numbered steps.
 
-When in doubt about Rock RMS specifics, ask Brian — he has deep admin access and will answer quickly.
+When in doubt about Rock RMS specifics, consult the Rock admin or `docs/rock-integration.md`.

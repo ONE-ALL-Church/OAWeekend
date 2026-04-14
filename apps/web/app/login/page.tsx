@@ -6,7 +6,6 @@ import { Suspense } from "react";
 function LoginContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
-  const detail = searchParams.get("detail");
 
   return (
     <main className="flex flex-1 items-center justify-center p-8">
@@ -26,11 +25,8 @@ function LoginContent() {
               <p className="text-sm text-red-700 font-medium">
                 {error === "unauthorized"
                   ? "Access denied. Your account is not authorized to use this application."
-                  : `Sign in failed (${error})`}
+                  : "Sign in failed. Please try again."}
               </p>
-              {detail && (
-                <p className="text-xs text-red-500 break-all">{detail}</p>
-              )}
             </div>
           )}
 

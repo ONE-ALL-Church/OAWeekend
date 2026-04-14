@@ -1,10 +1,11 @@
 const rules = {
   attrs: {
     allow: {
-      $default: "true",
+      $default: "auth.id != null",
     },
   },
   namespaces: {
+    // Public read: display pages render these on unauthenticated projector screens
     sessions: {
       allow: {
         read: "true",
@@ -21,7 +22,7 @@ const rules = {
         delete: "auth.id != null",
       },
     },
-    keyterms: {
+    displays: {
       allow: {
         read: "true",
         create: "auth.id != null",
@@ -29,17 +30,18 @@ const rules = {
         delete: "auth.id != null",
       },
     },
-    displays: {
+    // Auth required: operator-only data
+    keyterms: {
       allow: {
-        read: "true",
+        read: "auth.id != null",
         create: "auth.id != null",
-        update: "true",
+        update: "auth.id != null",
         delete: "auth.id != null",
       },
     },
     calendarSections: {
       allow: {
-        read: "true",
+        read: "auth.id != null",
         create: "auth.id != null",
         update: "auth.id != null",
         delete: "auth.id != null",
@@ -47,7 +49,7 @@ const rules = {
     },
     calendarRows: {
       allow: {
-        read: "true",
+        read: "auth.id != null",
         create: "auth.id != null",
         update: "auth.id != null",
         delete: "auth.id != null",
@@ -55,7 +57,7 @@ const rules = {
     },
     calendarWeeks: {
       allow: {
-        read: "true",
+        read: "auth.id != null",
         create: "auth.id != null",
         update: "auth.id != null",
         delete: "auth.id != null",
@@ -63,7 +65,7 @@ const rules = {
     },
     calendarEntries: {
       allow: {
-        read: "true",
+        read: "auth.id != null",
         create: "auth.id != null",
         update: "auth.id != null",
         delete: "auth.id != null",
@@ -71,7 +73,7 @@ const rules = {
     },
     calendarSeries: {
       allow: {
-        read: "true",
+        read: "auth.id != null",
         create: "auth.id != null",
         update: "auth.id != null",
         delete: "auth.id != null",

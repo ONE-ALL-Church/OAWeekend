@@ -92,6 +92,68 @@ async function rockAttributeValues(
   return data;
 }
 
+// --- Auth / Group membership schemas (V2, camelCase) ---
+
+const PersonAliasSchema = z.object({
+  id: z.number(),
+  personId: z.number(),
+});
+
+const GroupMemberSchema = z.object({
+  id: z.number(),
+  personId: z.number(),
+  groupId: z.number(),
+  groupMemberStatus: z.number(),
+  isArchived: z.boolean().optional(),
+});
+
+/**
+ * Check whether an OIDC subject is an active, non-archived member of the
+ * configured Rock security group (ROCK_AUTH_GROUP_ID, default 2).
+ *
+ * @param sub - The OIDC `sub` claim (Rock PersonAliasId).
+ *              This is immutable and unique per person — never use email.
+ *
+ * Resolves PersonAliasId → PersonId, then checks GroupMembers.
+ * Throws if Rock RMS is not configured or unreachable.
+ */
+export async function isAuthorizedGroupMember(sub: string): Promise<boolean> {
+  const groupId = process.env.ROCK_AUTH_GROUP_ID ?? "2";
+
+  // Rock OIDC sub is the PersonAliasId (numeric)
+  const aliasId = parseInt(sub, 10);
+  if (isNaN(aliasId) || aliasId <= 0) return false;
+
+  // Step 1: resolve PersonAliasId → PersonId
+  const aliases = await rockSearch(
+    "personalias",
+    { where: `Id == ${aliasId}`, limit: 1 },
+    PersonAliasSchema
+  );
+
+  if (aliases.length === 0) return false;
+
+  const personId = aliases[0].personId;
+
+  // Step 2: check active, non-archived membership in the auth group
+  // GroupMemberStatus: 1 = Active
+  const members = await rockSearch(
+    "groupmembers",
+    {
+      where: [
+        `GroupId == ${groupId}`,
+        `PersonId == ${personId}`,
+        `GroupMemberStatus == 1`,
+        `IsArchived == false`,
+      ].join(" AND "),
+      limit: 1,
+    },
+    GroupMemberSchema
+  );
+
+  return members.length > 0;
+}
+
 // --- Event schemas (V2, camelCase) ---
 
 const EventCalendarItemV2Schema = z.object({
@@ -286,7 +348,7 @@ export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
       name: event.name,
       summary: event.summary ?? null,
       photoUrl: event.photoId
-        ? `${ROCK_BASE_URL}/GetImage.ashx?Id=${event.photoId}`
+        ? `/api/rock/image?id=${event.photoId}`
         : null,
       detailsUrl: event.detailsUrl ?? null,
       campuses: campusesByEventId.get(event.id) ?? null,

@@ -6,14 +6,19 @@ export function proxy(request: NextRequest) {
   const isProtected =
     pathname.startsWith("/operator") ||
     pathname.startsWith("/capture") ||
-    pathname === "/api/deepgram-token";
+    pathname === "/api/deepgram-token" ||
+    pathname.startsWith("/api/rock/services");
 
   if (!isProtected) return NextResponse.next();
 
-  // Check for InstantDB auth token cookie
   const token = request.cookies.get("instant_token");
   if (token?.value) {
     return NextResponse.next();
+  }
+
+  // API routes get 401; pages get redirected to login
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const loginUrl = new URL("/login", request.url);
@@ -22,5 +27,10 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/operator/:path*", "/capture/:path*", "/api/deepgram-token"],
+  matcher: [
+    "/operator/:path*",
+    "/capture/:path*",
+    "/api/deepgram-token",
+    "/api/rock/services",
+  ],
 };
