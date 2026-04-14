@@ -28,7 +28,7 @@ Before first run, ensure the following in Rock RMS:
 ## Environment Variables
 
 ```
-ROCK_BASE_URL=https://rock.oneandall.church
+ROCK_BASE_URL=https://your-rock-instance.example.com
 ROCK_API_KEY=your-api-key-here
 ROCK_CONTENT_CHANNEL_GUID=your-content-channel-guid
 ```

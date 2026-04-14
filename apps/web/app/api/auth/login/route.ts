@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
-/**
- * Initiates the Rock RMS OIDC login flow.
- * Generates a state parameter, stores it in a cookie, and redirects to Rock.
- */
 export async function GET(request: NextRequest) {
   const clientId = process.env.ROCK_CLIENT_ID;
-  if (!clientId) {
+  const oidcBaseUrl = process.env.ROCK_OIDC_BASE_URL;
+
+  if (!clientId || !oidcBaseUrl) {
     return NextResponse.json(
-      { error: "ROCK_CLIENT_ID not configured" },
+      { error: "OAuth not configured" },
       { status: 500 }
     );
   }
@@ -26,7 +24,7 @@ export async function GET(request: NextRequest) {
     state,
   });
 
-  const authorizeUrl = `https://www.oneandall.church/Auth/Authorize?${params}`;
+  const authorizeUrl = `${oidcBaseUrl}/Authorize?${params}`;
 
   const response = NextResponse.redirect(authorizeUrl);
   response.cookies.set("oauth_state", state, {
@@ -34,7 +32,7 @@ export async function GET(request: NextRequest) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 600, // 10 minutes
+    maxAge: 600,
   });
 
   return response;

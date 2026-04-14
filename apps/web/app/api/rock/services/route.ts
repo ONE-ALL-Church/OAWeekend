@@ -10,18 +10,16 @@ export async function GET() {
 
     return NextResponse.json({
       campuses: campuses.map((c) => ({
-        id: c.Id,
-        name: c.Name,
-        shortCode: c.ShortCode ?? null,
+        id: c.id,
+        name: c.name,
+        shortCode: c.shortCode ?? null,
       })),
       services,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    console.error("Rock services error:", message);
+    console.error("Rock services error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch data from Rock RMS", detail: message },
+      { error: "Failed to fetch services" },
       { status: 500 }
     );
   }

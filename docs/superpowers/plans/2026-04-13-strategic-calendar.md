@@ -3620,7 +3620,7 @@ Expected: No errors. If there are errors, fix them before proceeding.
 - [ ] **Step 3: Run the dev server and verify**
 
 ```bash
-cd /Users/briand/Documents/GitHub/OAWeekend && pnpm dev
+pnpm dev
 ```
 
 Navigate to `http://localhost:3000/calendar` and verify:
