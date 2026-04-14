@@ -113,7 +113,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
           {monthSpans.map((span, i) => (
             <div
               key={i}
-              className="bg-oa-sand-100/35 border-b border-oa-stone-200 px-3 py-2.5 text-center text-xs font-bold uppercase tracking-widest text-oa-black-700"
+              className="bg-oa-sand-100/10 border-b border-oa-stone-200 px-3 py-2.5 text-center text-xs font-bold uppercase tracking-widest text-oa-black-700"
               style={{ gridColumn: `span ${span.count}` }}
             >
               {span.label}
@@ -135,7 +135,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
               <Link
                 key={week.id}
                 href={`/calendar/week/${week.weekStart}`}
-                className="bg-oa-white border-b-2 border-oa-stone-200 px-2 py-2.5 text-center hover:bg-oa-sand-100/35 transition-colors duration-[220ms]"
+                className="bg-oa-white border-b-2 border-oa-stone-200 px-2 py-2.5 text-center hover:bg-oa-sand-100/10 transition-colors duration-[220ms]"
               >
                 <div className="text-[13px] font-semibold text-oa-black-900">
                   {satDay} &amp; {sunDay}
