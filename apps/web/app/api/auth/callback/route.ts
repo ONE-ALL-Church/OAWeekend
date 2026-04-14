@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Authorize via Rock RMS group membership using the immutable OIDC sub
-    // (PersonId) — never email, which is mutable and non-unique.
+    // (PersonAlias GUID) — never email, which is mutable and non-unique.
     let authorized = false;
     try {
       authorized = await isAuthorizedGroupMember(sub);
@@ -101,13 +101,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (!authorized) {
-      // Temporary debug: include sub in redirect to diagnose auth failure
       return NextResponse.redirect(
-        new URL(`/login?error=unauthorized&debug_sub=${encodeURIComponent(sub)}`, request.url)
+        new URL("/login?error=unauthorized", request.url)
       );
     }
 
-    // Use the immutable OIDC sub (PersonId) as the InstantDB identity —
+    // Use the immutable OIDC sub (PersonAlias GUID) as the InstantDB identity —
     // never email, which is mutable and non-unique in Rock.
     const instantToken = await adminDb.auth.createToken(sub);
 
