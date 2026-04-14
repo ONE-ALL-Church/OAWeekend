@@ -157,3 +157,26 @@ export function useDateRange(pageOffset: number) {
     return { rangeStart, rangeEnd };
   }, [pageOffset]);
 }
+
+/**
+ * Compute a wide date range centered on an anchor month/year.
+ * Loads 3 months before and 3 months after the anchor (≈26 weeks total).
+ */
+export function useDateRangeFromAnchor(anchorYear: number, anchorMonth: number) {
+  return useMemo(() => {
+    // 3 months before the anchor
+    const startDate = new Date(anchorYear, anchorMonth - 3, 1);
+    // Find the Saturday on or before that date
+    const startDay = startDate.getDay();
+    const diffToSat = (startDay + 1) % 7;
+    startDate.setDate(startDate.getDate() - diffToSat);
+
+    // 3 months after the anchor (end of that month)
+    const endDate = new Date(anchorYear, anchorMonth + 4, 0); // last day of month+3
+
+    const rangeStart = startDate.toISOString().slice(0, 10);
+    const rangeEnd = endDate.toISOString().slice(0, 10);
+
+    return { rangeStart, rangeEnd };
+  }, [anchorYear, anchorMonth]);
+}

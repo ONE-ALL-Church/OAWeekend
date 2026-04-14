@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, forwardRef } from "react";
 import Link from "next/link";
 import type {
   CalendarSectionWithRows,
@@ -31,11 +31,11 @@ interface EditingCell {
   currentStatus: "empty" | "draft" | "confirmed";
 }
 
-export function CalendarGrid({
+export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(function CalendarGrid({
   sections,
   weeks,
   campusFilter,
-}: CalendarGridProps) {
+}, ref) {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     new Set(),
   );
@@ -93,7 +93,7 @@ export function CalendarGrid({
 
   return (
     <>
-      <div className="overflow-x-auto">
+      <div ref={ref} className="overflow-x-auto">
         <div
           className="grid"
           style={{
@@ -184,7 +184,7 @@ export function CalendarGrid({
       )}
     </>
   );
-}
+});
 
 function SectionBlock({
   section,

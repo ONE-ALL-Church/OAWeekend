@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   useCalendarSections,
   useCalendarWeeks,
-  useDateRange,
+  useDateRangeFromAnchor,
   buildEntryMap,
 } from "@/hooks/use-calendar";
 import { useUserEditableSections } from "@/hooks/use-calendar-roles";
@@ -17,8 +17,10 @@ import type { CalendarEntry } from "@/lib/instant";
 
 export default function SectionDetailPage() {
   const params = useParams<{ sectionSlug: string }>();
-  const [pageOffset, setPageOffset] = useState(0);
-  const { rangeStart, rangeEnd } = useDateRange(pageOffset);
+  const now = new Date();
+  const [anchorYear, setAnchorYear] = useState(now.getFullYear());
+  const [anchorMonth, setAnchorMonth] = useState(now.getMonth());
+  const { rangeStart, rangeEnd } = useDateRangeFromAnchor(anchorYear, anchorMonth);
 
   const { sections, isLoading: sectionsLoading } = useCalendarSections();
   const { weeks, isLoading: weeksLoading } = useCalendarWeeks(rangeStart, rangeEnd);
@@ -85,18 +87,30 @@ export default function SectionDetailPage() {
           {section.rows.length} row{section.rows.length !== 1 ? "s" : ""}
         </span>
         <div className="flex-1" />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <select
+            value={anchorMonth}
+            onChange={(e) => setAnchorMonth(Number(e.target.value))}
+            className="px-2.5 py-1.5 rounded-[--radius-input] border border-oa-stone-200 text-sm font-medium bg-oa-white text-oa-black-900"
+          >
+            {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m, i) => (
+              <option key={i} value={i}>{m}</option>
+            ))}
+          </select>
+          <select
+            value={anchorYear}
+            onChange={(e) => setAnchorYear(Number(e.target.value))}
+            className="px-2.5 py-1.5 rounded-[--radius-input] border border-oa-stone-200 text-sm font-medium bg-oa-white text-oa-black-900"
+          >
+            {Array.from({ length: 4 }, (_, i) => now.getFullYear() - 1 + i).map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
           <button
-            onClick={() => setPageOffset((p) => p - 1)}
+            onClick={() => { setAnchorYear(now.getFullYear()); setAnchorMonth(now.getMonth()); }}
             className="px-3 py-1.5 rounded-[--radius-button] border border-oa-stone-200 text-sm font-medium hover:bg-oa-stone-100 transition-colors duration-[220ms]"
           >
-            ← Prev
-          </button>
-          <button
-            onClick={() => setPageOffset((p) => p + 1)}
-            className="px-3 py-1.5 rounded-[--radius-button] border border-oa-stone-200 text-sm font-medium hover:bg-oa-stone-100 transition-colors duration-[220ms]"
-          >
-            Next →
+            Today
           </button>
         </div>
       </div>

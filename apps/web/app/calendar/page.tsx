@@ -1,22 +1,25 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import db from "@/lib/instant";
 import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
 import { CalendarGrid } from "@/components/calendar/calendar-grid";
 import {
   useCalendarSections,
   useCalendarWeeks,
-  useDateRange,
+  useDateRangeFromAnchor,
 } from "@/hooks/use-calendar";
 import { useRockData } from "@/hooks/use-rock-data";
 import { createCalendarWeek } from "@/hooks/use-calendar-settings";
 
 export default function CalendarPage() {
   const { user } = db.useAuth();
-  const [pageOffset, setPageOffset] = useState(0);
+  const now = new Date();
+  const [anchorYear, setAnchorYear] = useState(now.getFullYear());
+  const [anchorMonth, setAnchorMonth] = useState(now.getMonth());
   const [campus, setCampus] = useState("");
-  const { rangeStart, rangeEnd } = useDateRange(pageOffset);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { rangeStart, rangeEnd } = useDateRangeFromAnchor(anchorYear, anchorMonth);
 
   const { sections, isLoading: sectionsLoading } = useCalendarSections();
   const { weeks, isLoading: weeksLoading } = useCalendarWeeks(
@@ -30,19 +33,27 @@ export default function CalendarPage() {
   // Map Rock campuses (id: number) to toolbar format (id: string)
   const toolbarCampuses = campuses.map((c) => ({ id: String(c.id), name: c.name }));
 
-  // Build range label
-  const rangeLabel = (() => {
-    if (weeks.length === 0) return "No weeks";
-    const first = new Date(weeks[0]!.weekStart + "T00:00:00");
-    const last = new Date(weeks[weeks.length - 1]!.weekStart + "T00:00:00");
-    const fmtOpts: Intl.DateTimeFormatOptions = { month: "short", year: "numeric" };
-    const startLabel = first.toLocaleDateString("en-US", fmtOpts);
-    const endLabel = last.toLocaleDateString("en-US", fmtOpts);
-    return startLabel === endLabel ? startLabel : `${startLabel} — ${endLabel}`;
-  })();
+  // Scroll to the anchor month column when anchor changes or weeks load
+  useEffect(() => {
+    if (!scrollRef.current || weeks.length === 0) return;
+
+    // Find the first week that falls in the anchor month
+    const anchorStr = `${anchorYear}-${String(anchorMonth + 1).padStart(2, "0")}`;
+    const targetIdx = weeks.findIndex((w) => w.weekStart.startsWith(anchorStr));
+
+    if (targetIdx >= 0) {
+      // Each column is ~140px, label column is 180px
+      const scrollTo = targetIdx * 140;
+      scrollRef.current.scrollTo({ left: scrollTo, behavior: "smooth" });
+    }
+  }, [anchorYear, anchorMonth, weeks]);
+
+  const handleAnchorChange = useCallback((year: number, month: number) => {
+    setAnchorYear(year);
+    setAnchorMonth(month);
+  }, []);
 
   const handleAddWeek = useCallback(async () => {
-    // Add the next Saturday after the last week
     if (weeks.length === 0) return;
     const lastWeek = weeks[weeks.length - 1]!;
     const lastDate = new Date(lastWeek.weekStart + "T00:00:00");
@@ -62,9 +73,9 @@ export default function CalendarPage() {
   return (
     <main className="flex flex-col flex-1 bg-oa-white">
       <CalendarToolbar
-        rangeLabel={rangeLabel}
-        onPrev={() => setPageOffset((p) => p - 1)}
-        onNext={() => setPageOffset((p) => p + 1)}
+        anchorYear={anchorYear}
+        anchorMonth={anchorMonth}
+        onAnchorChange={handleAnchorChange}
         campus={campus}
         onCampusChange={setCampus}
         campuses={toolbarCampuses}
@@ -91,6 +102,7 @@ export default function CalendarPage() {
         </div>
       ) : (
         <CalendarGrid
+          ref={scrollRef}
           sections={sections}
           weeks={weeks}
           campusFilter={campus}
