@@ -7,7 +7,7 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/operator") ||
     pathname.startsWith("/capture") ||
     pathname === "/api/deepgram-token" ||
-    pathname.startsWith("/api/rock/services");
+    pathname.startsWith("/api/rock/");
 
   if (!isProtected) return NextResponse.next();
 
@@ -22,7 +22,6 @@ export function proxy(request: NextRequest) {
   }
 
   const loginUrl = new URL("/login", request.url);
-  loginUrl.searchParams.set("redirect", pathname);
   return NextResponse.redirect(loginUrl);
 }
 
@@ -31,6 +30,6 @@ export const config = {
     "/operator/:path*",
     "/capture/:path*",
     "/api/deepgram-token",
-    "/api/rock/services",
+    "/api/rock/:path*",
   ],
 };

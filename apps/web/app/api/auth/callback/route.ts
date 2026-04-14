@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(new URL("/operator", request.url));
 
     // instant_token must be JS-readable for the InstantDB client SDK.
-    // XSS risk is mitigated by CSP headers (see next.config.ts).
+    // XSS risk is mitigated by the Content-Security-Policy header in next.config.ts.
     response.cookies.set("instant_token", instantToken, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
@@ -143,6 +143,12 @@ export async function GET(request: NextRequest) {
 
 /** Constant-time string comparison to prevent timing attacks on state param. */
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Perform a dummy comparison to avoid leaking length via timing difference
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
 }

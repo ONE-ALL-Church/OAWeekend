@@ -45,10 +45,14 @@ pnpm dev
 | `NEXT_PUBLIC_INSTANT_APP_ID` | Yes | InstantDB app ID |
 | `INSTANT_ADMIN_TOKEN` | Yes | InstantDB admin token |
 | `DEEPGRAM_API_KEY` | Yes | Deepgram API key (server-only) |
-| `OPERATOR_PASSWORD` | Yes | Shared password for operator access |
+| `DEEPGRAM_PROJECT_ID` | Yes | Deepgram project ID (for scoped temp keys) |
+| `ROCK_OIDC_BASE_URL` | Yes | Rock RMS OIDC endpoint base URL |
+| `ROCK_CLIENT_ID` | Yes | Rock OIDC client ID |
+| `ROCK_CLIENT_SECRET` | Yes | Rock OIDC client secret |
+| `ROCK_AUTH_GROUP_ID` | No | Rock security group for login (default: 2) |
 | `ROCK_BASE_URL` | No | Rock RMS instance URL |
 | `ROCK_API_KEY` | No | Rock RMS API key |
-| `ROCK_CONTENT_CHANNEL_GUID` | No | Rock content channel for sermons |
+| `ROCK_CONTENT_CHANNEL_ID` | No | Rock content channel for sermons |
 
 ## Pages
 
