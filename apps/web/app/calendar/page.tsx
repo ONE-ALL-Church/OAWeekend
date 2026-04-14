@@ -11,6 +11,7 @@ import {
   useDateRangeFromAnchor,
 } from "@/hooks/use-calendar";
 import { useRockData } from "@/hooks/use-rock-data";
+import { useRockEvents, useEventsByWeek } from "@/hooks/use-rock-events";
 import { createCalendarWeek } from "@/hooks/use-calendar-settings";
 
 export default function CalendarPage() {
@@ -29,6 +30,9 @@ export default function CalendarPage() {
   );
   const latestWeek = useLatestCalendarWeek();
   const { campuses } = useRockData();
+  const { events: rockEvents } = useRockEvents();
+  const weekStarts = weeks.map((w) => w.weekStart);
+  const eventsByWeek = useEventsByWeek(rockEvents, weekStarts);
 
   const isLoading = sectionsLoading || weeksLoading;
 
@@ -115,6 +119,7 @@ export default function CalendarPage() {
           sections={sections}
           weeks={weeks}
           campusFilter={campus}
+          eventsByWeek={eventsByWeek}
         />
       )}
     </main>

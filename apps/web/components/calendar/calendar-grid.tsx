@@ -10,6 +10,7 @@ import type {
 } from "@/lib/instant";
 import { buildEntryMap } from "@/hooks/use-calendar";
 import { useUserEditableSections } from "@/hooks/use-calendar-roles";
+import type { RockEventOccurrence } from "@/hooks/use-rock-events";
 import { CalendarSectionHeader } from "./calendar-section-header";
 import { CalendarCell } from "./calendar-cell";
 import { CellEditor } from "./cell-editor";
@@ -19,6 +20,8 @@ interface CalendarGridProps {
   sections: CalendarSectionWithRows[];
   weeks: CalendarWeekWithEntries[];
   campusFilter: string;
+  /** Rock events mapped by weekStart → occurrences for that week */
+  eventsByWeek?: Map<string, RockEventOccurrence[]>;
 }
 
 interface EditingCell {
@@ -35,6 +38,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
   sections,
   weeks,
   campusFilter,
+  eventsByWeek,
 }, ref) {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     new Set(),
@@ -151,6 +155,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
                 )
               : section.rows;
             const editable = isSectionEditable(section.id);
+            const isEventsSection = section.slug === "events-campaigns";
 
             return (
               <SectionBlock
@@ -163,6 +168,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
                 onToggle={() => toggleSection(section.id)}
                 isEditable={editable}
                 onCellClick={(cell) => setEditingCell(cell)}
+                eventsByWeek={isEventsSection ? eventsByWeek : undefined}
               />
             );
           })}
@@ -195,6 +201,7 @@ function SectionBlock({
   onToggle,
   isEditable,
   onCellClick,
+  eventsByWeek,
 }: {
   section: CalendarSectionWithRows;
   rows: CalendarRow[];
@@ -204,7 +211,20 @@ function SectionBlock({
   onToggle: () => void;
   isEditable: boolean;
   onCellClick: (cell: EditingCell) => void;
+  eventsByWeek?: Map<string, RockEventOccurrence[]>;
 }) {
+  // Split rows: event rows are auto-populated from Rock, campaign rows stay manual
+  const eventRowSlugs = new Set([
+    "all-church-events",
+    "sd-events",
+    "rc-events",
+    "wc-events",
+  ]);
+  const hasRockEvents = eventsByWeek && eventsByWeek.size > 0;
+  const manualRows = eventsByWeek
+    ? rows.filter((r) => !eventRowSlugs.has(r.slug))
+    : rows;
+
   return (
     <>
       <CalendarSectionHeader
@@ -216,22 +236,34 @@ function SectionBlock({
         onToggle={onToggle}
       />
 
-      {isExpanded &&
-        rows.map((row, rowIdx) => {
-          const isLastRow = rowIdx === rows.length - 1;
-
-          return (
-            <RowBlock
-              key={row.id}
-              row={row}
+      {isExpanded && (
+        <>
+          {/* Rock featured events row (replaces manual event rows) */}
+          {eventsByWeek && (
+            <RockEventsRow
               weeks={weeks}
-              entryMap={entryMap}
-              isLastRow={isLastRow}
-              isEditable={isEditable}
-              onCellClick={onCellClick}
+              eventsByWeek={eventsByWeek}
+              isLastRow={!hasRockEvents && manualRows.length === 0}
             />
-          );
-        })}
+          )}
+
+          {/* Manual rows (campaigns, or all rows if not events section) */}
+          {manualRows.map((row, rowIdx) => {
+            const isLastRow = rowIdx === manualRows.length - 1;
+            return (
+              <RowBlock
+                key={row.id}
+                row={row}
+                weeks={weeks}
+                entryMap={entryMap}
+                isLastRow={isLastRow}
+                isEditable={isEditable}
+                onCellClick={onCellClick}
+              />
+            );
+          })}
+        </>
+      )}
     </>
   );
 }
@@ -288,6 +320,64 @@ function RowBlock({
               })
             }
           />
+        );
+      })}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Rock Events Row — auto-populated from Rock RMS Featured Events
+// ---------------------------------------------------------------------------
+
+function RockEventsRow({
+  weeks,
+  eventsByWeek,
+  isLastRow,
+}: {
+  weeks: CalendarWeekWithEntries[];
+  eventsByWeek: Map<string, RockEventOccurrence[]>;
+  isLastRow: boolean;
+}) {
+  const borderClass = isLastRow
+    ? "border-b-2 border-b-oa-stone-200"
+    : "border-b border-b-oa-stone-200/50";
+
+  return (
+    <>
+      {/* Row label */}
+      <div
+        className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center gap-1.5`}
+      >
+        <span>Featured Events</span>
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-oa-yellow-500/20 text-[9px] font-bold text-oa-yellow-600">
+          ⚡
+        </span>
+      </div>
+
+      {/* Cells */}
+      {weeks.map((week) => {
+        const eventsForWeek = eventsByWeek.get(week.weekStart) ?? [];
+
+        return (
+          <div
+            key={`rock-events-${week.id}`}
+            className={`px-2 py-1.5 text-xs bg-oa-white ${borderClass} border-r border-r-oa-stone-200/20 flex flex-col items-center justify-center gap-1 min-h-[40px]`}
+          >
+            {eventsForWeek.length === 0 ? (
+              <span className="text-oa-stone-300 text-base">—</span>
+            ) : (
+              eventsForWeek.map((ev) => (
+                <span
+                  key={`${ev.eventItemId}-${ev.campusId ?? "all"}`}
+                  className="inline-flex px-2 py-0.5 rounded-[10px] text-[10px] font-semibold bg-[#6873B3]/12 text-[#6873B3] text-center leading-tight max-w-full truncate"
+                  title={ev.summary ?? ev.name}
+                >
+                  {ev.name}
+                </span>
+              ))
+            )}
+          </div>
         );
       })}
     </>
