@@ -111,22 +111,32 @@ const GroupMemberSchema = z.object({
  * Check whether an OIDC subject is an active, non-archived member of the
  * configured Rock security group (ROCK_AUTH_GROUP_ID, default 2).
  *
- * @param sub - The OIDC `sub` claim. Rock OIDC returns the **PersonId**
- *              (not PersonAliasId) as the subject. This is numeric and
- *              unique per person — never use email, which is mutable.
+ * @param sub - The OIDC `sub` claim. Rock OIDC returns the **PersonAlias GUID**
+ *              as the subject identifier.
  *
- * Checks GroupMembers directly by PersonId.
+ * Resolves PersonAlias GUID → PersonId, then checks GroupMembers.
  * Throws if Rock RMS is not configured or unreachable.
  */
 export async function isAuthorizedGroupMember(sub: string): Promise<boolean> {
   const groupId = process.env.ROCK_AUTH_GROUP_ID ?? "2";
 
-  // Rock OIDC sub is the PersonId (numeric).
-  // Safe to interpolate — parseInt guarantees numeric output.
-  const personId = parseInt(sub, 10);
-  if (isNaN(personId) || personId <= 0) return false;
+  // Validate GUID format to prevent LINQ injection — sub is interpolated
+  // into the query string, so it must be a valid GUID and nothing else.
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!sub || !guidRegex.test(sub)) return false;
 
-  // Check active, non-archived membership in the auth group
+  // Step 1: resolve PersonAlias GUID → PersonId
+  const aliases = await rockSearch(
+    "personaliases",
+    { where: `Guid == "${sub}"`, limit: 1 },
+    PersonAliasSchema
+  );
+
+  if (aliases.length === 0) return false;
+
+  const personId = aliases[0].personId;
+
+  // Step 2: check active, non-archived membership in the auth group
   // GroupMemberStatus: 1 = Active
   const members = await rockSearch(
     "groupmembers",
