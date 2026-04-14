@@ -101,8 +101,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (!authorized) {
+      // Temporary debug: include sub in redirect to diagnose auth failure
       return NextResponse.redirect(
-        new URL("/login?error=unauthorized", request.url)
+        new URL(`/login?error=unauthorized&debug_sub=${encodeURIComponent(sub)}`, request.url)
       );
     }
 
