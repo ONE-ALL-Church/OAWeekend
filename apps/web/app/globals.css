@@ -29,7 +29,7 @@
   --color-oa-green-bg: rgba(34, 197, 94, 0.1);
 
   /* Semantic aliases */
-  --color-surface: var(--color-oa-sand-100);
+  --color-surface: #FAFAF9;
   --color-surface-card: var(--color-oa-white);
   --color-surface-elevated: var(--color-oa-stone-100);
   --color-border: var(--color-oa-stone-200);
