@@ -109,6 +109,19 @@ export function useCalendarSeriesInRange(rangeStart: string, rangeEnd: string) {
   };
 }
 
+/**
+ * Query the single latest (max weekStart) calendar week across ALL data.
+ */
+export function useLatestCalendarWeek() {
+  const { data } = db.useQuery({
+    calendarWeeks: {
+      $: { order: { weekStart: "desc" }, limit: 1 },
+    },
+  });
+
+  return data?.calendarWeeks?.[0] ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Grid data builder
 // ---------------------------------------------------------------------------

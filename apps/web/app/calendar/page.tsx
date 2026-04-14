@@ -7,6 +7,7 @@ import { CalendarGrid } from "@/components/calendar/calendar-grid";
 import {
   useCalendarSections,
   useCalendarWeeks,
+  useLatestCalendarWeek,
   useDateRangeFromAnchor,
 } from "@/hooks/use-calendar";
 import { useRockData } from "@/hooks/use-rock-data";
@@ -26,6 +27,7 @@ export default function CalendarPage() {
     rangeStart,
     rangeEnd,
   );
+  const latestWeek = useLatestCalendarWeek();
   const { campuses } = useRockData();
 
   const isLoading = sectionsLoading || weeksLoading;
@@ -54,25 +56,20 @@ export default function CalendarPage() {
   }, []);
 
   const handleAddWeek = useCallback(async () => {
-    let nextWeekStart: string;
-
-    if (weeks.length === 0) {
-      // No weeks visible — create one for the Saturday in the anchor month
-      const anchor = new Date(anchorYear, anchorMonth, 1);
-      const day = anchor.getDay();
-      // Find the first Saturday on or after the 1st
-      const daysUntilSat = (6 - day + 7) % 7;
-      anchor.setDate(anchor.getDate() + daysUntilSat);
-      nextWeekStart = anchor.toISOString().slice(0, 10);
-    } else {
-      const lastWeek = weeks[weeks.length - 1]!;
-      const lastDate = new Date(lastWeek.weekStart + "T00:00:00");
+    if (latestWeek) {
+      // Add the next Saturday after the latest week in the entire calendar
+      const lastDate = new Date(latestWeek.weekStart + "T00:00:00");
       lastDate.setDate(lastDate.getDate() + 7);
-      nextWeekStart = lastDate.toISOString().slice(0, 10);
+      await createCalendarWeek({ weekStart: lastDate.toISOString().slice(0, 10) });
+    } else {
+      // No weeks at all — seed with the upcoming Saturday
+      const today = new Date();
+      const day = today.getDay();
+      const daysUntilSat = (6 - day + 7) % 7 || 7;
+      today.setDate(today.getDate() + daysUntilSat);
+      await createCalendarWeek({ weekStart: today.toISOString().slice(0, 10) });
     }
-
-    await createCalendarWeek({ weekStart: nextWeekStart });
-  }, [weeks, anchorYear, anchorMonth]);
+  }, [latestWeek]);
 
   if (!user) {
     return (
