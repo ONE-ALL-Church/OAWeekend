@@ -113,17 +113,18 @@ const GroupMemberSchema = z.object({
  *
  * @param sub - The OIDC `sub` claim. Rock OIDC returns the **PersonAlias GUID**
  *              as the subject identifier.
+ * @returns The PersonId if authorized, or null if not.
  *
  * Resolves PersonAlias GUID → PersonId, then checks GroupMembers.
  * Throws if Rock RMS is not configured or unreachable.
  */
-export async function isAuthorizedGroupMember(sub: string): Promise<boolean> {
+export async function isAuthorizedGroupMember(sub: string): Promise<number | null> {
   const groupId = process.env.ROCK_AUTH_GROUP_ID ?? "2";
 
   // Validate GUID format to prevent LINQ injection — sub is interpolated
   // into the query string, so it must be a valid GUID and nothing else.
   const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!sub || !guidRegex.test(sub)) return false;
+  if (!sub || !guidRegex.test(sub)) return null;
 
   // Step 1: resolve PersonAlias GUID → PersonId
   const aliases = await rockSearch(
@@ -132,7 +133,7 @@ export async function isAuthorizedGroupMember(sub: string): Promise<boolean> {
     PersonAliasSchema
   );
 
-  if (aliases.length === 0) return false;
+  if (aliases.length === 0) return null;
 
   const personId = aliases[0].personId;
 
@@ -152,7 +153,7 @@ export async function isAuthorizedGroupMember(sub: string): Promise<boolean> {
     GroupMemberSchema
   );
 
-  return members.length > 0;
+  return members.length > 0 ? personId : null;
 }
 
 // --- Event schemas (V2, camelCase) ---

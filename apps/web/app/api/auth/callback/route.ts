@@ -93,21 +93,23 @@ export async function GET(request: NextRequest) {
 
     // Authorize via Rock RMS group membership using the immutable OIDC sub
     // (PersonAlias GUID) — never email, which is mutable and non-unique.
-    let authorized = false;
+    // Returns the stable PersonId on success, null on failure.
+    let personId: number | null = null;
     try {
-      authorized = await isAuthorizedGroupMember(sub);
+      personId = await isAuthorizedGroupMember(sub);
     } catch (err) {
       console.error("Rock group membership check failed:", err);
     }
 
-    if (!authorized) {
+    if (personId === null) {
       return NextResponse.redirect(
         new URL("/login?error=unauthorized", request.url)
       );
     }
 
-    // InstantDB createToken expects an email address as the identity.
-    const instantToken = await adminDb.auth.createToken(email);
+    // Use PersonId as the stable InstantDB identity — it is unique per person
+    // and survives PersonAlias merges. Email is mutable and non-unique in Rock.
+    const instantToken = await adminDb.auth.createToken({ id: personId.toString() });
 
     const response = NextResponse.redirect(new URL("/operator", request.url));
 
