@@ -26,8 +26,10 @@ export function useCalendarRoles() {
 
 /**
  * Returns the set of section IDs the current user can edit.
- * If the user has no roles, returns an empty set (view-only).
- * Admin check is done by a special role name "Admin".
+ * - No roles configured yet → null (all sections editable for all authenticated users)
+ * - User has Admin role → null (all sections editable)
+ * - User has specific roles → Set of their assigned section IDs
+ * - User has no matching roles → empty Set (view-only)
  */
 export function useUserEditableSections() {
   const { user } = db.useAuth();
@@ -35,6 +37,10 @@ export function useUserEditableSections() {
 
   const editableSectionIds = useMemo(() => {
     if (!user) return new Set<string>();
+
+    // If no roles have been configured yet, grant full access to all
+    // authenticated users (roles only restrict once set up)
+    if (roles.length === 0) return null;
 
     const userRoles = roles.filter((role) =>
       (role.members ?? []).some((m) => m.id === user.id),
