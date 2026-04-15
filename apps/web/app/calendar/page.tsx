@@ -96,6 +96,25 @@ export default function CalendarPage() {
     }
   }, [latestWeek]);
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const handleSync = useCallback(async () => {
+    if (isSyncing || weeks.length === 0) return;
+    setIsSyncing(true);
+    try {
+      await Promise.all(
+        weeks.map((week) =>
+          fetch(`/api/calendar/week/${week.weekStart}/prefill-planning-center`, {
+            method: "POST",
+          }),
+        ),
+      );
+    } catch (err) {
+      console.error("Sync failed:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isSyncing, weeks]);
+
   if (!user) {
     return (
       <main className="flex flex-1 items-center justify-center">
@@ -114,6 +133,8 @@ export default function CalendarPage() {
         onCampusChange={setCampus}
         campuses={toolbarCampuses}
         onAddWeek={handleAddWeek}
+        onSync={handleSync}
+        isSyncing={isSyncing}
       />
 
       {isLoading ? (

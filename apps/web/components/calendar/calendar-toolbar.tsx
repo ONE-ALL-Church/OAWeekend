@@ -15,6 +15,8 @@ interface CalendarToolbarProps {
   onCampusChange: (campus: string) => void;
   campuses: Array<{ id: string; name: string }>;
   onAddWeek?: () => void;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 export function CalendarToolbar({
@@ -25,6 +27,8 @@ export function CalendarToolbar({
   onCampusChange,
   campuses,
   onAddWeek,
+  onSync,
+  isSyncing,
 }: CalendarToolbarProps) {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -91,6 +95,21 @@ export function CalendarToolbar({
       </select>
 
       {/* Actions */}
+      {onSync && (
+        <button
+          onClick={onSync}
+          disabled={isSyncing}
+          className="px-3 py-1.5 rounded-[--radius-button] border border-oa-stone-200 text-sm font-medium hover:bg-oa-stone-100 transition-colors duration-[220ms] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className={isSyncing ? "animate-spin" : ""}>
+            <path d="M2 8a6 6 0 0 1 10.3-4.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <path d="M14 8a6 6 0 0 1-10.3 4.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <path d="M12 1.5v2.5h-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M4 14.5v-2.5h2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {isSyncing ? "Syncing..." : "Sync"}
+        </button>
+      )}
       {onAddWeek && (
         <button
           onClick={onAddWeek}
