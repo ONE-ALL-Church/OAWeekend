@@ -269,6 +269,7 @@ function SectionBlock({
                 eventsByWeek={eventsByWeek}
                 isLoading={eventsLoading ?? false}
                 isLastRow={manualRows.length === 0 && idx === eventRows.length - 1}
+                seriesTintByWeek={seriesTintByWeek}
               />
             ))}
 
@@ -295,6 +296,7 @@ function SectionBlock({
                     name={row.name}
                     weeks={weeks}
                     isLastRow={false}
+                    seriesTintByWeek={seriesTintByWeek}
                   />,
                 );
 
@@ -424,10 +426,12 @@ function ParentRowHeader({
   name,
   weeks,
   isLastRow,
+  seriesTintByWeek,
 }: {
   name: string;
   weeks: CalendarWeekWithEntries[];
   isLastRow: boolean;
+  seriesTintByWeek?: Map<string, string>;
 }) {
   const borderClass = isLastRow
     ? "border-b-2 border-b-oa-stone-200"
@@ -443,12 +447,16 @@ function ParentRowHeader({
           PC
         </span>
       </div>
-      {weeks.map((week) => (
-        <div
-          key={`parent-${name}-${week.id}`}
-          className={`bg-oa-sand-100/20 ${borderClass} border-r border-r-oa-stone-200/20 min-h-[40px]`}
-        />
-      ))}
+      {weeks.map((week) => {
+        const tint = seriesTintByWeek?.get(week.weekStart);
+        return (
+          <div
+            key={`parent-${name}-${week.id}`}
+            className={`${borderClass} border-r border-r-oa-stone-200/20 min-h-[40px]`}
+            style={{ backgroundColor: tint ?? "rgba(var(--color-oa-sand-100), 0.2)" }}
+          />
+        );
+      })}
     </>
   );
 }
@@ -464,6 +472,7 @@ function RockEventsRow({
   eventsByWeek,
   isLoading,
   isLastRow,
+  seriesTintByWeek,
 }: {
   label: string;
   category: keyof CategorizedWeekEvents;
@@ -471,6 +480,7 @@ function RockEventsRow({
   eventsByWeek: Map<string, CategorizedWeekEvents>;
   isLoading: boolean;
   isLastRow: boolean;
+  seriesTintByWeek?: Map<string, string>;
 }) {
   const borderClass = isLastRow
     ? "border-b-2 border-b-oa-stone-200"
@@ -492,11 +502,13 @@ function RockEventsRow({
       {weeks.map((week) => {
         const weekData = eventsByWeek.get(week.weekStart);
         const eventsForRow = weekData ? weekData[category] : [];
+        const tint = seriesTintByWeek?.get(week.weekStart);
 
         return (
           <div
             key={`rock-${category}-${week.id}`}
-            className={`px-1.5 py-1.5 text-xs bg-oa-white ${borderClass} border-r border-r-oa-stone-200/20 flex flex-col items-center justify-center gap-1 min-h-[40px]`}
+            className={`px-1.5 py-1.5 text-xs ${borderClass} border-r border-r-oa-stone-200/20 flex flex-col items-center justify-center gap-1 min-h-[40px]`}
+            style={{ backgroundColor: tint ?? "var(--color-oa-white)" }}
           >
             {isLoading ? (
               <div className="flex flex-col items-center gap-1 w-full animate-pulse">
