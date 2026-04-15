@@ -5,6 +5,7 @@ import type { CalendarSectionWithRows, CalendarEntry } from "@/lib/instant";
 import { CellEditor } from "./cell-editor";
 import { PersonChip } from "./person-chip";
 import { SeriesHoverCard } from "./series-hover-card";
+import { SongHoverCard } from "./song-hover-card";
 import type {
   CalendarFieldType,
   PersonPickerContent,
@@ -198,6 +199,13 @@ function FieldValueDisplay({
     case "text": {
       const v = parsed as unknown as TextContent;
       if (!v.value) return <span className="text-oa-stone-300 italic text-[13px]">Not assigned</span>;
+      if (v.songAuthor || v.songKey || v.songCcli) {
+        return (
+          <SongHoverCard song={v}>
+            <span className="text-[14px] cursor-default">{v.value}</span>
+          </SongHoverCard>
+        );
+      }
       return <span className="text-[14px]">{v.value}</span>;
     }
     case "multilineText": {

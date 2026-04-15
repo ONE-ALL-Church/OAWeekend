@@ -74,6 +74,13 @@ export type CalendarEntrySource = "manual" | "planning-center" | "rock";
 
 export interface TextContent {
   value: string;
+  // Song metadata (optional, populated when synced from Planning Center)
+  songKey?: string | null;
+  songAuthor?: string | null;
+  songCcli?: string | null;
+  songCopyright?: string | null;
+  songThemes?: string | null;
+  songLastScheduled?: string | null;
 }
 
 export interface MultilineTextContent {

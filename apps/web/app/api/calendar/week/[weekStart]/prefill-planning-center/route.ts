@@ -240,10 +240,19 @@ export async function POST(
       const slug = `song-${index + 1}`;
       const row = rowsBySlug.get(slug);
       if (!row) return;
+      const content = JSON.stringify({
+        value: song.title,
+        songKey: song.key ?? null,
+        songAuthor: song.author ?? null,
+        songCcli: song.ccliNumber ?? null,
+        songCopyright: song.copyright ?? null,
+        songThemes: song.themes ?? null,
+        songLastScheduled: song.lastScheduled ?? null,
+      });
       const didWrite = upsertEntry(txs, {
         rowId: row.id,
         weekId: week.id,
-        content: jsonText(song.title),
+        content,
         existing: entriesByRowId.get(row.id),
       });
       (didWrite ? written : skipped).push(slug);

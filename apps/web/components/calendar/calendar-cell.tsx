@@ -2,6 +2,7 @@
 
 import { PersonChip } from "./person-chip";
 import { SeriesHoverCard } from "./series-hover-card";
+import { SongHoverCard } from "./song-hover-card";
 import type {
   TextContent,
   MultilineTextContent,
@@ -68,6 +69,13 @@ function CellValueRenderer({
   switch (fieldType) {
     case "text": {
       const v = value as TextContent;
+      if (v.songAuthor || v.songKey || v.songCcli) {
+        return (
+          <SongHoverCard song={v}>
+            <span className="cursor-default">{v.value}</span>
+          </SongHoverCard>
+        );
+      }
       return <span>{v.value}</span>;
     }
     case "multilineText": {

@@ -57,6 +57,23 @@ const itemSchema = z.object({
     sequence: z.number().nullable().optional(),
     title: z.string().nullable().optional(),
   }),
+  relationships: z.object({
+    song: z.object({
+      data: z.object({ type: z.string(), id: z.string() }).nullable().optional(),
+    }).optional(),
+  }).optional(),
+});
+
+const songSchema = z.object({
+  id: z.string(),
+  attributes: z.object({
+    title: z.string().nullable().optional(),
+    author: z.string().nullable().optional(),
+    ccli_number: z.union([z.string(), z.number()]).nullable().optional(),
+    copyright: z.string().nullable().optional(),
+    themes: z.string().nullable().optional(),
+    last_scheduled_short_dates: z.string().nullable().optional(),
+  }),
 });
 
 const teamMemberSchema = z.object({
@@ -96,7 +113,15 @@ export interface WeekendPlanSummary {
   sermonTitle: string | null;
   weekLabel: string | null;
   totalLengthSeconds: number | null;
-  songs: Array<{ title: string; key: string | null }>;
+  songs: Array<{
+    title: string;
+    key: string | null;
+    author: string | null;
+    ccliNumber: string | null;
+    copyright: string | null;
+    themes: string | null;
+    lastScheduled: string | null;
+  }>;
   hosts: PlanningCenterPerson[];
   worshipLeaders: PlanningCenterPerson[];
   serviceTimes: string[];
@@ -138,8 +163,8 @@ async function listPlans(serviceTypeId: number, perPage = 25) {
 
 async function listPlanItems(serviceTypeId: number, planId: string) {
   return pcoFetch(
-    `/services/v2/service_types/${serviceTypeId}/plans/${planId}/items?per_page=100`,
-    z.object({ data: z.array(itemSchema) }),
+    `/services/v2/service_types/${serviceTypeId}/plans/${planId}/items?per_page=100&include=song`,
+    z.object({ data: z.array(itemSchema), included: z.array(songSchema).optional() }),
   );
 }
 
@@ -279,15 +304,31 @@ async function buildWeekendPlanSummary(
   ]);
 
   const items = itemsResult.data;
+  const includedSongs = itemsResult.included ?? [];
   const teamMembers = teamMembersResult.data;
   const planTimes = planTimesResult.data;
 
+  // Build a lookup of included song details by ID
+  const songDetailsById = new Map<string, z.infer<typeof songSchema>>();
+  for (const s of includedSongs) {
+    songDetailsById.set(s.id, s);
+  }
+
   const songs = items
     .filter((item) => item.attributes.item_type === "song")
-    .map((item) => ({
-      title: item.attributes.title?.trim() ?? "",
-      key: item.attributes.key_name?.trim() ?? null,
-    }))
+    .map((item) => {
+      const songId = item.relationships?.song?.data?.id;
+      const details = songId ? songDetailsById.get(songId) : undefined;
+      return {
+        title: item.attributes.title?.trim() ?? "",
+        key: item.attributes.key_name?.trim() ?? null,
+        author: details?.attributes.author?.trim() ?? null,
+        ccliNumber: details?.attributes.ccli_number != null ? String(details.attributes.ccli_number).trim() : null,
+        copyright: details?.attributes.copyright?.trim() ?? null,
+        themes: details?.attributes.themes?.trim() ?? null,
+        lastScheduled: details?.attributes.last_scheduled_short_dates?.trim() ?? null,
+      };
+    })
     .filter((song) => song.title);
 
   const hosts = pickPeopleByRole(teamMembers, (role) => /host/i.test(role));
