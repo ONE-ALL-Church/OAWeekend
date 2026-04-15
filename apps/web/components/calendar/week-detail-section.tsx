@@ -77,12 +77,12 @@ export function WeekDetailSection({
                 </div>,
               );
 
-              // Children
+              // Children — campus sub-rows are always non-editable
               for (const child of children) {
                 const entry = entries.get(child.id);
                 const content = entry?.content ?? "";
-                const isSyncedFromPC = (entry as Record<string, unknown> | undefined)?.source === "planning-center";
-                const rowEditable = isEditable && !isSyncedFromPC;
+                const isChildSyncedFromPC = !!(child as Record<string, unknown>).campusId || (entry as Record<string, unknown> | undefined)?.source === "planning-center";
+                const rowEditable = isEditable && !isChildSyncedFromPC;
 
                 elements.push(
                   <div
@@ -98,7 +98,7 @@ export function WeekDetailSection({
                         fieldType={child.fieldType as CalendarFieldType}
                       />
                     </div>
-                    {isSyncedFromPC && content && content !== "{}" && (
+                    {isChildSyncedFromPC && (
                       <span className="text-[9px] font-bold text-[#00A4C7]/60 ml-1 shrink-0" title="Synced from Planning Center">
                         PC
                       </span>

@@ -360,6 +360,9 @@ function RowBlock({
     ? "border-b-2 border-b-oa-stone-200"
     : "border-b border-b-oa-stone-200/50";
 
+  // A row with a campusId is always a PC-synced sub-row — never editable
+  const isRowSyncedFromPC = !!(row as Record<string, unknown>).campusId;
+
   return (
     <>
       {/* Row label */}
@@ -374,7 +377,7 @@ function RowBlock({
       {/* Cells */}
       {weeks.map((week) => {
         const entry = entryMap.get(`${week.id}:${row.id}`);
-        const isSyncedFromPC = (entry as Record<string, unknown> | undefined)?.source === "planning-center";
+        const isSyncedFromPC = isRowSyncedFromPC || (entry as Record<string, unknown> | undefined)?.source === "planning-center";
 
         return (
           <CalendarCell
