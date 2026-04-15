@@ -175,10 +175,21 @@ const EventItemV2Schema = z.object({
   detailsUrl: z.string().nullable().optional(),
 });
 
+const ScheduleV2Schema = z.object({
+  id: z.number(),
+  effectiveStartDate: z.string().nullable().optional(),
+  effectiveEndDate: z.string().nullable().optional(),
+  friendlyScheduleText: z.string().nullable().optional(),
+  iCalendarContent: z.string().nullable().optional(),
+  weeklyDayOfWeek: z.number().nullable().optional(),
+  weeklyTimeOfDay: z.string().nullable().optional(),
+});
+
 const EventItemOccurrenceV2Schema = z.object({
   id: z.number(),
   eventItemId: z.number(),
   campusId: z.number().nullable().optional(),
+  scheduleId: z.number().nullable().optional(),
   nextStartDateTime: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
@@ -457,7 +468,7 @@ export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
     });
   }
 
-  // Step 3: Bulk fetch active EventItems + future occurrences via V2
+  // Step 3: Bulk fetch active EventItems + ALL occurrences for featured events
   const [allEventItems, allOccurrences] = await Promise.all([
     rockSearch(
       "eventitems",
@@ -466,21 +477,75 @@ export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
     ),
     rockSearch(
       "eventitemoccurrences",
-      { where: "NextStartDateTime != null", limit: 2000 },
+      { limit: 2000 },
       EventItemOccurrenceV2Schema,
     ),
   ]);
 
-  // Index occurrences by eventItemId
-  const occurrencesByEvent = new Map<number, (typeof allOccurrences)>();
-  for (const occ of allOccurrences) {
-    if (!featuredEventIds.has(occ.eventItemId)) continue;
+  // Filter to only featured event occurrences
+  const featuredOccurrences = allOccurrences.filter((o) =>
+    featuredEventIds.has(o.eventItemId),
+  );
+
+  // Step 4: Fetch schedules for featured occurrences to expand recurring dates
+  const scheduleIds = new Set(
+    featuredOccurrences
+      .map((o) => o.scheduleId)
+      .filter((id): id is number => id != null),
+  );
+
+  const schedules = scheduleIds.size > 0
+    ? await rockSearch(
+        "schedules",
+        {
+          where: [...scheduleIds].map((id) => `Id == ${id}`).join(" OR "),
+          limit: 500,
+        },
+        ScheduleV2Schema,
+      )
+    : [];
+
+  const scheduleById = new Map(schedules.map((s) => [s.id, s]));
+
+  // Compute a date range for expansion: 3 months back to 3 months forward
+  const now = new Date();
+  const rangeStart = new Date(now);
+  rangeStart.setMonth(rangeStart.getMonth() - 3);
+  const rangeEnd = new Date(now);
+  rangeEnd.setMonth(rangeEnd.getMonth() + 3);
+
+  // Index expanded occurrences by eventItemId
+  type ExpandedOcc = {
+    occurrenceId: number;
+    campusId: number | null;
+    nextStartDateTime: string | null;
+    location: string | null;
+  };
+  const occurrencesByEvent = new Map<number, ExpandedOcc[]>();
+
+  for (const occ of featuredOccurrences) {
     const list = occurrencesByEvent.get(occ.eventItemId) ?? [];
-    list.push(occ);
+
+    const schedule = occ.scheduleId ? scheduleById.get(occ.scheduleId) : undefined;
+    const dates = schedule
+      ? expandScheduleDates(schedule, rangeStart, rangeEnd)
+      : occ.nextStartDateTime
+        ? [occ.nextStartDateTime]
+        : [];
+
+    for (const dt of dates) {
+      list.push({
+        occurrenceId: occ.id,
+        campusId: occ.campusId ?? null,
+        nextStartDateTime: dt,
+        location: occ.location ?? null,
+      });
+    }
+
     occurrencesByEvent.set(occ.eventItemId, list);
   }
 
-  // Step 4: Build results — only featured + active events
+  // Step 5: Build results — only featured + active events
   const results: RockFeaturedEvent[] = [];
   for (const event of allEventItems) {
     if (!featuredEventIds.has(event.id)) continue;
@@ -500,14 +565,144 @@ export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
       campusList: enriched?.campusList ?? [],
       ministry: enriched?.ministry ?? null,
       callsToAction: enriched?.callsToAction ?? [],
-      occurrences: occs.map((o) => ({
-        occurrenceId: o.id,
-        campusId: o.campusId ?? null,
-        nextStartDateTime: o.nextStartDateTime ?? null,
-        location: o.location ?? null,
-      })),
+      occurrences: occs,
     });
   }
 
   return results;
+}
+
+// ---------------------------------------------------------------------------
+// Schedule date expansion — computes concrete dates from iCal RRULE
+// ---------------------------------------------------------------------------
+
+function expandScheduleDates(
+  schedule: z.infer<typeof ScheduleV2Schema>,
+  rangeStart: Date,
+  rangeEnd: Date,
+): string[] {
+  const ical = schedule.iCalendarContent;
+  if (!ical) return [];
+
+  // Parse DTSTART and RRULE from iCal
+  const dtStartMatch = ical.match(/DTSTART[^:]*:(\d{8}T\d{6})/);
+  const rruleMatch = ical.match(/RRULE:(.*?)(?:\r?\n|$)/);
+  if (!dtStartMatch) return [];
+
+  const dtStart = parseICalDate(dtStartMatch[1]);
+  if (!dtStart) return [];
+
+  // If no RRULE, it's a single occurrence
+  if (!rruleMatch) {
+    if (dtStart >= rangeStart && dtStart <= rangeEnd) {
+      return [dtStart.toISOString()];
+    }
+    return [];
+  }
+
+  const rrule = parseRRule(rruleMatch[1]);
+  const effectiveEnd = schedule.effectiveEndDate
+    ? new Date(schedule.effectiveEndDate)
+    : rangeEnd;
+  const endBound = effectiveEnd < rangeEnd ? effectiveEnd : rangeEnd;
+
+  const dates: string[] = [];
+  const freq = String(rrule.FREQ ?? "");
+  const interval = Number(rrule.INTERVAL ?? 1);
+  const count = rrule.COUNT != null ? Number(rrule.COUNT) : undefined;
+  const byDay = rrule.BYDAY != null ? String(rrule.BYDAY) : undefined;
+
+  if (freq === "WEEKLY") {
+    // Weekly recurrence — step by interval weeks from dtStart
+    const cursor = new Date(dtStart);
+    let n = 0;
+    while (cursor <= endBound && (!count || n < count)) {
+      if (cursor >= rangeStart) {
+        dates.push(cursor.toISOString());
+      }
+      cursor.setDate(cursor.getDate() + 7 * interval);
+      n++;
+      if (dates.length > 100) break; // safety
+    }
+  } else if (freq === "MONTHLY" && byDay) {
+    // Monthly on Nth weekday (e.g., "3SA" = 3rd Saturday)
+    const nthMatch = byDay.match(/(-?\d)?(\w{2})/);
+    if (nthMatch) {
+      const nth = nthMatch[1] ? parseInt(nthMatch[1]) : 1;
+      const dayCode = nthMatch[2];
+      const dayMap: Record<string, number> = {
+        SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
+      };
+      const targetDay = dayMap[dayCode];
+      if (targetDay !== undefined) {
+        const cursor = new Date(rangeStart);
+        cursor.setDate(1);
+        let n = 0;
+        while (cursor <= endBound && (!count || n < count)) {
+          const date = getNthWeekdayOfMonth(cursor.getFullYear(), cursor.getMonth(), targetDay, nth);
+          if (date && date >= rangeStart && date <= endBound) {
+            dates.push(copyTime(date, dtStart).toISOString());
+            n++;
+          }
+          cursor.setMonth(cursor.getMonth() + interval);
+          if (dates.length > 100) break;
+        }
+      }
+    }
+  } else if (freq === "DAILY") {
+    const cursor = new Date(dtStart);
+    let n = 0;
+    while (cursor <= endBound && (!count || n < count)) {
+      if (cursor >= rangeStart) {
+        dates.push(cursor.toISOString());
+      }
+      cursor.setDate(cursor.getDate() + interval);
+      n++;
+      if (dates.length > 200) break;
+    }
+  }
+
+  return dates;
+}
+
+function parseICalDate(s: string): Date | null {
+  // Format: 20260328T140000
+  const m = s.match(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+}
+
+function parseRRule(s: string): Record<string, string | number | undefined> {
+  const parts: Record<string, string | number | undefined> = {};
+  for (const part of s.split(";")) {
+    const [key, val] = part.split("=");
+    if (key && val) {
+      parts[key] = /^\d+$/.test(val) ? parseInt(val) : val;
+    }
+  }
+  return parts;
+}
+
+function getNthWeekdayOfMonth(year: number, month: number, dayOfWeek: number, nth: number): Date | null {
+  if (nth > 0) {
+    const first = new Date(year, month, 1);
+    let day = 1 + ((dayOfWeek - first.getDay() + 7) % 7);
+    day += (nth - 1) * 7;
+    const result = new Date(year, month, day);
+    if (result.getMonth() !== month) return null;
+    return result;
+  }
+  // nth <= 0: last, second-to-last, etc.
+  const last = new Date(year, month + 1, 0);
+  let day = last.getDate() - ((last.getDay() - dayOfWeek + 7) % 7);
+  day += (nth + 1) * 7; // nth=-1 means last
+  const result = new Date(year, month, day);
+  if (result.getMonth() !== month) return null;
+  return result;
+}
+
+function copyTime(target: Date, source: Date): Date {
+  const result = new Date(target);
+  result.setHours(source.getHours(), source.getMinutes(), source.getSeconds());
+  return result;
 }
