@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
               "connect-src 'self' https://*.instantdb.com wss://*.instantdb.com https://api.deepgram.com wss://api.deepgram.com",
-              "img-src 'self' data: blob:",
+              "img-src 'self' data: blob: https://avatars.planningcenteronline.com",
               "font-src 'self'",
               "object-src 'none'",
               "base-uri 'self'",

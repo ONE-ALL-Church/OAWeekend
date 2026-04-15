@@ -65,6 +65,7 @@ const teamMemberSchema = z.object({
     name: z.string().nullable().optional(),
     status: z.string().nullable().optional(),
     team_position_name: z.string().nullable().optional(),
+    photo_thumbnail: z.string().nullable().optional(),
   }),
 });
 
@@ -91,8 +92,8 @@ export interface WeekendPlanSummary {
   weekLabel: string | null;
   totalLengthSeconds: number | null;
   songs: Array<{ title: string; key: string | null }>;
-  hosts: string[];
-  worshipLeaders: string[];
+  hosts: PlanningCenterPerson[];
+  worshipLeaders: PlanningCenterPerson[];
   serviceTimes: string[];
 }
 
@@ -190,19 +191,31 @@ function isActiveAssignment(status: string | null | undefined) {
   return status !== "D";
 }
 
+export interface PlanningCenterPerson {
+  name: string;
+  photoUrl: string | null;
+}
+
 function pickPeopleByRole(
   teamMembers: PlanningCenterTeamMember[],
   matcher: (role: string) => boolean,
-) {
-  return uniqueSorted(
-    teamMembers.flatMap((member) => {
-      const role = member.attributes.team_position_name ?? "";
-      if (!matcher(role) || !isActiveAssignment(member.attributes.status)) {
-        return [];
-      }
-      return [member.attributes.name ?? ""];
-    }),
-  );
+): PlanningCenterPerson[] {
+  const people = teamMembers.flatMap((member) => {
+    const role = member.attributes.team_position_name ?? "";
+    if (!matcher(role) || !isActiveAssignment(member.attributes.status)) {
+      return [];
+    }
+    const name = member.attributes.name?.trim();
+    if (!name) return [];
+    return [{ name, photoUrl: member.attributes.photo_thumbnail ?? null }];
+  });
+  // Deduplicate by name, keep first occurrence
+  const seen = new Set<string>();
+  return people.filter((p) => {
+    if (seen.has(p.name)) return false;
+    seen.add(p.name);
+    return true;
+  });
 }
 
 function formatServiceTimeLabel(time: PlanningCenterPlanTime) {

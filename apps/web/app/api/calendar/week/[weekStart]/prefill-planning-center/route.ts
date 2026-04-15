@@ -4,18 +4,20 @@ import adminDb from "@/lib/instant-admin";
 import {
   extractWeekNumber,
   getWeekendPlansForWeek,
+  type PlanningCenterPerson,
 } from "@/lib/planning-center";
 
 function jsonText(value: string) {
   return JSON.stringify({ value });
 }
 
-function jsonPeople(names: string[]) {
+function jsonPeople(people: PlanningCenterPerson[]) {
   return JSON.stringify({
-    people: names.map((name) => ({
-      name,
-      initials: buildInitials(name),
+    people: people.map((p) => ({
+      name: p.name,
+      initials: buildInitials(p.name),
       rockPersonId: null,
+      photoUrl: p.photoUrl ?? null,
     })),
   });
 }

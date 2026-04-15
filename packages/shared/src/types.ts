@@ -85,6 +85,7 @@ export interface PersonPickerContent {
     name: string;
     initials: string;
     rockPersonId: string | null;
+    photoUrl?: string | null;
   }>;
 }
 
