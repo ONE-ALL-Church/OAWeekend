@@ -6,7 +6,7 @@ import {
   getWeekendPlansForWeek,
   type PlanningCenterPerson,
 } from "@/lib/planning-center";
-import { getSermonForWeek } from "@/lib/rock";
+import { getSermonForWeek, type RockSeriesDetails } from "@/lib/rock";
 
 function jsonText(value: string) {
   return JSON.stringify({ value });
@@ -23,11 +23,20 @@ function jsonPeople(people: PlanningCenterPerson[]) {
   });
 }
 
-function jsonSeries(seriesId: string, seriesName: string, weekNumber: number | null) {
+function jsonSeries(
+  seriesId: string,
+  seriesName: string,
+  weekNumber: number | null,
+  details?: RockSeriesDetails | null,
+) {
   return JSON.stringify({
     seriesId,
     weekNumber: weekNumber ?? 0,
     label: seriesName,
+    narrative: details?.narrative ?? null,
+    objectives: details?.objectives ?? [],
+    imageUrl: details?.imageUrl ?? null,
+    startDate: details?.startDate ?? null,
   });
 }
 
@@ -301,6 +310,7 @@ export async function POST(
               seriesId,
               rockSermon.seriesTitle,
               extractWeekNumber(sanDimasPlan?.weekLabel ?? null),
+              rockSermon.seriesDetails,
             ),
             source: "rock",
             existing: entriesByRowId.get(row.id),
@@ -334,6 +344,32 @@ export async function POST(
             existing: entriesByRowId.get(speakerRow.id),
           });
           (didWrite ? written : skipped).push("speaker");
+        }
+      }
+    } else {
+      // Fallback: use Planning Center for series when Rock has no sermon data
+      const pcoSeriesTitle =
+        sanDimasPlan?.seriesTitle ??
+        planningCenter.ranchoCucamonga?.seriesTitle ??
+        planningCenter.westCovina?.seriesTitle ??
+        null;
+
+      if (pcoSeriesTitle) {
+        const seriesId = await ensureSeriesForWeek(week.id, weekStart, pcoSeriesTitle);
+        const row = rowsBySlug.get("series");
+        if (row) {
+          const didWrite = upsertEntry(txs, {
+            rowId: row.id,
+            weekId: week.id,
+            content: jsonSeries(
+              seriesId,
+              pcoSeriesTitle,
+              extractWeekNumber(sanDimasPlan?.weekLabel ?? null),
+            ),
+            source: "planning-center",
+            existing: entriesByRowId.get(row.id),
+          });
+          (didWrite ? written : skipped).push("series");
         }
       }
     }

@@ -269,10 +269,20 @@ export async function getWeekendServices(): Promise<WeekendService[]> {
 
 const ROCK_SERIES_CHANNEL_ID = 4;
 
+export interface RockSeriesDetails {
+  title: string;
+  narrative: string | null;
+  objectives: string[];
+  imageUrl: string | null;
+  startDate: string | null;
+  rockItemId: number;
+}
+
 export interface RockSermonForWeek {
   sermonTitle: string;
   speaker: string | null;
   seriesTitle: string | null;
+  seriesDetails: RockSeriesDetails | null;
   contentChannelItemId: number;
 }
 
@@ -335,12 +345,34 @@ export async function getSermonForWeek(weekStart: string): Promise<RockSermonFor
     ContentChannelItemSchema,
   );
 
-  const seriesTitle = seriesList.length > 0 ? seriesList[0].title : null;
+  let seriesTitle: string | null = null;
+  let seriesDetails: RockSeriesDetails | null = null;
+
+  if (seriesList.length > 0) {
+    const series = seriesList[0];
+    seriesTitle = series.title;
+
+    const seriesAttrs = await rockAttributeValues("contentchannelitems", series.id);
+    const imageGuid = seriesAttrs.SeriesImage?.value || null;
+
+    seriesDetails = {
+      title: series.title,
+      narrative: seriesAttrs.Narrative?.textValue || seriesAttrs.Summary?.textValue || null,
+      objectives: (seriesAttrs.Objectives?.textValue || "")
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean),
+      imageUrl: imageGuid ? `${ROCK_BASE_URL}/GetImage.ashx?guid=${imageGuid}` : null,
+      startDate: series.startDateTime?.slice(0, 10) ?? null,
+      rockItemId: series.id,
+    };
+  }
 
   return {
     sermonTitle: sermon.title,
     speaker,
     seriesTitle,
+    seriesDetails,
     contentChannelItemId: sermon.id,
   };
 }

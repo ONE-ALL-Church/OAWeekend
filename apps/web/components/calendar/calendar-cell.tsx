@@ -1,6 +1,7 @@
 "use client";
 
 import { PersonChip } from "./person-chip";
+import { SeriesHoverCard } from "./series-hover-card";
 import type {
   TextContent,
   MultilineTextContent,
@@ -121,12 +122,14 @@ function CellValueRenderer({
         return <span className="text-oa-stone-300 text-base">—</span>;
       }
       return (
-        <div className="flex flex-col items-center gap-0.5 leading-tight">
-          <span className="font-semibold text-[11px]">{v.label ?? "Series"}</span>
-          {v.weekNumber > 0 && (
-            <span className="text-[10px] text-oa-stone-300">Week {v.weekNumber}</span>
-          )}
-        </div>
+        <SeriesHoverCard series={v}>
+          <div className="flex flex-col items-center gap-0.5 leading-tight cursor-default">
+            <span className="font-semibold text-[11px]">{v.label ?? "Series"}</span>
+            {v.weekNumber > 0 && (
+              <span className="text-[10px] text-oa-stone-300">Week {v.weekNumber}</span>
+            )}
+          </div>
+        </SeriesHoverCard>
       );
     }
     case "campusPicker": {

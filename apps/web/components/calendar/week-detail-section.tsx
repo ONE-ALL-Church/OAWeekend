@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { CalendarSectionWithRows, CalendarEntry } from "@/lib/instant";
 import { CellEditor } from "./cell-editor";
 import { PersonChip } from "./person-chip";
+import { SeriesHoverCard } from "./series-hover-card";
 import type {
   CalendarFieldType,
   PersonPickerContent,
@@ -243,12 +244,14 @@ function FieldValueDisplay({
         return <span className="text-oa-stone-300 italic text-[13px]">Not assigned</span>;
       }
       return (
-        <div className="flex items-center gap-2 text-[14px]">
-          <span className="font-semibold">{v.label ?? "Series"}</span>
-          {v.weekNumber > 0 && (
-            <span className="text-[12px] text-oa-stone-300">Week {v.weekNumber}</span>
-          )}
-        </div>
+        <SeriesHoverCard series={v}>
+          <div className="flex items-center gap-2 text-[14px] cursor-default">
+            <span className="font-semibold">{v.label ?? "Series"}</span>
+            {v.weekNumber > 0 && (
+              <span className="text-[12px] text-oa-stone-300">Week {v.weekNumber}</span>
+            )}
+          </div>
+        </SeriesHoverCard>
       );
     }
     case "campusPicker": {

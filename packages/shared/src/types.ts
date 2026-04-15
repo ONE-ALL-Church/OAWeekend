@@ -93,6 +93,10 @@ export interface SeriesPickerContent {
   seriesId: string;
   weekNumber: number;
   label?: string;
+  narrative?: string | null;
+  objectives?: string[];
+  imageUrl?: string | null;
+  startDate?: string | null;
 }
 
 export interface CampusPickerContent {
