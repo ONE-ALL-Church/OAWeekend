@@ -8,6 +8,7 @@ const _schema = i.schema({
     sessions: i.entity({
       campusId: i.string().indexed(),
       campusName: i.string(),
+      createdBy: i.string().indexed().optional(),
       scheduleId: i.string().optional(),
       sermonTitle: i.string().optional(),
       speakerName: i.string().optional(),
@@ -61,6 +62,8 @@ const _schema = i.schema({
       sortOrder: i.number().indexed(),
       fieldType: i.string().indexed(),
       campusSpecific: i.boolean(),
+      campusId: i.string().optional(),
+      parentRowId: i.string().optional(),
       createdAt: i.number().indexed(),
     }),
     calendarWeeks: i.entity({
@@ -72,6 +75,7 @@ const _schema = i.schema({
       content: i.string(),
       notes: i.string().optional(),
       status: i.string().indexed(),
+      source: i.string().optional(),
       updatedAt: i.number().indexed(),
       updatedBy: i.string().optional(),
     }),
@@ -173,7 +177,7 @@ const _schema = i.schema({
 });
 
 type _AppSchema = typeof _schema;
-interface AppSchema extends _AppSchema {}
+type AppSchema = _AppSchema;
 const schema: AppSchema = _schema;
 
 export type { AppSchema };

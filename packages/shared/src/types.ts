@@ -70,6 +70,8 @@ export type CalendarFieldType =
 
 export type CalendarEntryStatus = "empty" | "draft" | "confirmed";
 
+export type CalendarEntrySource = "manual" | "planning-center";
+
 export interface TextContent {
   value: string;
 }
@@ -89,6 +91,7 @@ export interface PersonPickerContent {
 export interface SeriesPickerContent {
   seriesId: string;
   weekNumber: number;
+  label?: string;
 }
 
 export interface CampusPickerContent {
