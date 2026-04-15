@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useCalendarWeek, useCalendarSections } from "@/hooks/use-calendar";
@@ -8,9 +8,39 @@ import { useUserEditableSections } from "@/hooks/use-calendar-roles";
 import { WeekDetailSection } from "@/components/calendar/week-detail-section";
 import type { CalendarEntry } from "@/lib/instant";
 
+interface PrefillResult {
+  written: string[];
+  skipped: string[];
+  planningCenter: {
+    sourceOfTruth: string | null;
+    seriesTitle: string | null;
+    sermonTitle: string | null;
+    songs: Array<{ title: string; key: string | null }>;
+    hostsByCampus: Array<{ campusName: string | null; hosts: string[] }>;
+    worshipLeadersByCampus: Array<{
+      campusName: string | null;
+      worshipLeaders: string[];
+    }>;
+    serviceTimesByCampus: Array<{
+      campusName: string | null;
+      serviceTimes: string[];
+    }>;
+    notes: string[];
+  };
+}
+
 export default function WeekDetailPage() {
   const params = useParams<{ weekStart: string }>();
   const weekStart = params.weekStart;
+  const [prefillState, setPrefillState] = useState<{
+    isLoading: boolean;
+    error: string | null;
+    result: PrefillResult | null;
+  }>({
+    isLoading: false,
+    error: null,
+    result: null,
+  });
 
   const { week, isLoading: weekLoading } = useCalendarWeek(weekStart);
   const { sections, isLoading: sectionsLoading } = useCalendarSections();
@@ -67,6 +97,43 @@ export default function WeekDetailPage() {
 
   // Series info from the week's linked series
   const seriesInfo = week?.series?.[0] ?? null;
+
+  async function handlePrefill() {
+    setPrefillState({
+      isLoading: true,
+      error: null,
+      result: null,
+    });
+
+    try {
+      const res = await fetch(
+        `/api/calendar/week/${weekStart}/prefill-planning-center`,
+        {
+          method: "POST",
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Planning Center prefill failed");
+      }
+
+      setPrefillState({
+        isLoading: false,
+        error: null,
+        result: data as PrefillResult,
+      });
+    } catch (error) {
+      setPrefillState({
+        isLoading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Planning Center prefill failed",
+        result: null,
+      });
+    }
+  }
 
   if (isLoading) {
     return (
@@ -125,6 +192,15 @@ export default function WeekDetailPage() {
           </div>
         </div>
         <div className="flex gap-1.5">
+          <button
+            onClick={handlePrefill}
+            disabled={prefillState.isLoading}
+            className="px-3 py-1.5 rounded-[--radius-button] border border-oa-stone-200 text-sm font-medium text-oa-black-700 hover:bg-oa-stone-100 transition-colors duration-[220ms] disabled:opacity-50"
+          >
+            {prefillState.isLoading
+              ? "Pulling Planning Center..."
+              : "Prefill from Planning Center"}
+          </button>
           {prevWeek && (
             <Link
               href={`/calendar/week/${prevWeek}`}
@@ -143,6 +219,54 @@ export default function WeekDetailPage() {
           )}
         </div>
       </div>
+
+      {(prefillState.error || prefillState.result) && (
+        <div className="max-w-[960px] mx-auto w-full px-8 pt-6">
+          <div className="rounded-[--radius-card] border border-oa-stone-200 bg-oa-white px-5 py-4 shadow-[--shadow-card]">
+            {prefillState.error ? (
+              <p className="text-sm text-[#b42318]">{prefillState.error}</p>
+            ) : prefillState.result ? (
+              <div className="space-y-3 text-sm text-oa-black-900">
+                <p>
+                  Filled {prefillState.result.written.length} blank field
+                  {prefillState.result.written.length === 1 ? "" : "s"} from
+                  Planning Center.
+                  {prefillState.result.skipped.length > 0 &&
+                    ` Skipped ${prefillState.result.skipped.length} field${prefillState.result.skipped.length === 1 ? "" : "s"} that already had content.`}
+                </p>
+                <p className="text-oa-black-700">
+                  Source of truth for songs:{" "}
+                  {prefillState.result.planningCenter.sourceOfTruth ?? "none"}.
+                  {prefillState.result.planningCenter.seriesTitle &&
+                    ` Series: ${prefillState.result.planningCenter.seriesTitle}.`}
+                  {prefillState.result.planningCenter.sermonTitle &&
+                    ` Sermon title: ${prefillState.result.planningCenter.sermonTitle}.`}
+                </p>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {prefillState.result.planningCenter.hostsByCampus.map(
+                    (campus) => (
+                      <div key={`hosts-${campus.campusName ?? "unknown"}`}>
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-oa-stone-300">
+                          {campus.campusName ?? "Unknown campus"} Host
+                        </div>
+                        <div className="mt-1 text-[13px]">
+                          {campus.hosts.length > 0
+                            ? campus.hosts.join(", ")
+                            : "No host assigned"}
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+                <p className="text-[12px] text-oa-stone-300">
+                  Also available from the API for a future wrapper: worship
+                  leaders, service times, song keys, and full service items.
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {/* Section cards */}
       <div className="max-w-[960px] mx-auto w-full px-8 py-6 space-y-4">
