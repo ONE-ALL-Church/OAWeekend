@@ -157,7 +157,7 @@ function parseCellContent(content: string): unknown | null {
     const parsed = JSON.parse(content);
     // Check if the parsed value is "empty"
     if (parsed.value === "" || parsed.value === undefined) {
-      if (!parsed.people?.length && !parsed.tags?.length && !parsed.campuses?.length) {
+      if (!parsed.people?.length && !parsed.tags?.length && !parsed.campuses?.length && !parsed.seriesId) {
         return null;
       }
     }
