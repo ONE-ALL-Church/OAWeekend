@@ -63,15 +63,15 @@ export async function GET(
       }),
     ]);
 
-    const emails: Array<{ address: string; location: string | null; primary: boolean }> = [];
-    const phones: Array<{ number: string; location: string | null; primary: boolean }> = [];
+    const allEmails: Array<{ address: string; location: string | null; primary: boolean }> = [];
+    const allPhones: Array<{ number: string; location: string | null; primary: boolean }> = [];
 
     if (emailsRes.ok) {
       const data = await emailsRes.json();
       for (const item of data.data ?? []) {
         const parsed = emailSchema.safeParse(item);
         if (parsed.success) {
-          emails.push({
+          allEmails.push({
             address: parsed.data.attributes.address,
             location: parsed.data.attributes.location ?? null,
             primary: parsed.data.attributes.primary ?? false,
@@ -85,7 +85,7 @@ export async function GET(
       for (const item of data.data ?? []) {
         const parsed = phoneSchema.safeParse(item);
         if (parsed.success) {
-          phones.push({
+          allPhones.push({
             number: formatPhone(parsed.data.attributes.number),
             location: parsed.data.attributes.location ?? null,
             primary: parsed.data.attributes.primary ?? false,
@@ -93,6 +93,28 @@ export async function GET(
         }
       }
     }
+
+    // Deduplicate emails by lowercase address, prefer primary
+    const seenEmails = new Set<string>();
+    const emails = allEmails
+      .sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0))
+      .filter((e) => {
+        const key = e.address.toLowerCase();
+        if (seenEmails.has(key)) return false;
+        seenEmails.add(key);
+        return true;
+      });
+
+    // Deduplicate phones by digits, prefer primary
+    const seenPhones = new Set<string>();
+    const phones = allPhones
+      .sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0))
+      .filter((p) => {
+        const key = p.number.replace(/\D/g, "");
+        if (seenPhones.has(key)) return false;
+        seenPhones.add(key);
+        return true;
+      });
 
     return NextResponse.json({ emails, phones });
   } catch (error) {
