@@ -18,6 +18,7 @@ function jsonPeople(people: PlanningCenterPerson[]) {
       name: p.name,
       initials: buildInitials(p.name),
       rockPersonId: null,
+      pcoPersonId: p.pcoPersonId ?? null,
       photoUrl: p.photoUrl ?? null,
     })),
   });
@@ -339,7 +340,7 @@ export async function POST(
           const didWrite = upsertEntry(txs, {
             rowId: speakerRow.id,
             weekId: week.id,
-            content: jsonPeople([{ name: rockSermon.speaker, photoUrl: null }]),
+            content: jsonPeople([{ name: rockSermon.speaker, photoUrl: null, pcoPersonId: null }]),
             source: "rock",
             existing: entriesByRowId.get(speakerRow.id),
           });

@@ -85,7 +85,7 @@ function CellValueRenderer({
       return (
         <div className="flex flex-wrap gap-1 justify-center">
           {v.people.map((p, i) => (
-            <PersonChip key={i} name={p.name} initials={p.initials} photoUrl={p.photoUrl} size="sm" />
+            <PersonChip key={i} name={p.name} initials={p.initials} photoUrl={p.photoUrl} pcoPersonId={p.pcoPersonId} size="sm" />
           ))}
         </div>
       );

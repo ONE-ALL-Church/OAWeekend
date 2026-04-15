@@ -67,6 +67,11 @@ const teamMemberSchema = z.object({
     team_position_name: z.string().nullable().optional(),
     photo_thumbnail: z.string().nullable().optional(),
   }),
+  relationships: z.object({
+    person: z.object({
+      data: z.object({ id: z.string() }).nullable().optional(),
+    }).optional(),
+  }).optional(),
 });
 
 const planTimeSchema = z.object({
@@ -194,6 +199,7 @@ function isActiveAssignment(status: string | null | undefined) {
 export interface PlanningCenterPerson {
   name: string;
   photoUrl: string | null;
+  pcoPersonId: string | null;
 }
 
 function pickPeopleByRole(
@@ -207,7 +213,8 @@ function pickPeopleByRole(
     }
     const name = member.attributes.name?.trim();
     if (!name) return [];
-    return [{ name, photoUrl: member.attributes.photo_thumbnail ?? null }];
+    const pcoPersonId = member.relationships?.person?.data?.id ?? null;
+    return [{ name, photoUrl: member.attributes.photo_thumbnail ?? null, pcoPersonId }];
   });
   // Deduplicate by name, keep first occurrence
   const seen = new Set<string>();

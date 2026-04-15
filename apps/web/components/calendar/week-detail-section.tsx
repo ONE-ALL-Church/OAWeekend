@@ -217,7 +217,7 @@ function FieldValueDisplay({
       return (
         <div className="flex flex-wrap gap-1.5">
           {v.people.map((p, i) => (
-            <PersonChip key={i} name={p.name} initials={p.initials} photoUrl={p.photoUrl} />
+            <PersonChip key={i} name={p.name} initials={p.initials} photoUrl={p.photoUrl} pcoPersonId={p.pcoPersonId} />
           ))}
         </div>
       );
