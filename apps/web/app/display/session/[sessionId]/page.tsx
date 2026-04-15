@@ -1,15 +1,10 @@
 "use client";
 
-import { use, useState, useCallback, useRef } from "react";
+import { use, useState, useRef } from "react";
 import db from "@/lib/instant";
 import { useSession } from "@/hooks/use-session";
 import { CaptionOverlay } from "@/components/caption-display";
-
-interface CaptionLine {
-  id: number;
-  text: string;
-  timestamp: number;
-}
+import type { CaptionLine } from "@/components/caption-display";
 
 export default function DisplayPage({
   params,
@@ -18,9 +13,8 @@ export default function DisplayPage({
 }) {
   const { sessionId } = use(params);
   const { session } = useSession(sessionId);
-  const [lines, setLines] = useState<CaptionLine[]>([]);
+  const [completedLines, setCompletedLines] = useState<CaptionLine[]>([]);
   const lineIdRef = useRef(0);
-  const interimRef = useRef<string>("");
 
   // Subscribe to transcript topic for low-latency updates
   const room = db.room("captions", sessionId);
@@ -34,8 +28,7 @@ export default function DisplayPage({
     };
 
     if (data.kind === "final") {
-      interimRef.current = "";
-      setLines((prev) => [
+      setCompletedLines((prev) => [
         ...prev,
         {
           id: lineIdRef.current++,
@@ -43,9 +36,6 @@ export default function DisplayPage({
           timestamp: Date.now(),
         },
       ]);
-    } else {
-      // Store interim for potential display (currently hidden)
-      interimRef.current = data.text;
     }
   });
 
@@ -74,7 +64,7 @@ export default function DisplayPage({
         }
         maxLines={3}
         paused={session.paused ?? false}
-        lines={lines}
+        completedLines={completedLines}
       />
     </div>
   );
