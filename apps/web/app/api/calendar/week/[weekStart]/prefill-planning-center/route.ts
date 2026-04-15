@@ -6,6 +6,7 @@ import {
   getWeekendPlansForWeek,
   type PlanningCenterPerson,
 } from "@/lib/planning-center";
+import { getSermonForWeek } from "@/lib/rock";
 
 function jsonText(value: string) {
   return JSON.stringify({ value });
@@ -74,6 +75,7 @@ function upsertEntry(
     rowId: string;
     weekId: string;
     content: string;
+    source?: string;
     existing: { id: string; content: string } | undefined;
   },
 ) {
@@ -81,14 +83,16 @@ function upsertEntry(
     return false; // skipped
   }
 
+  const source = opts.source ?? "planning-center";
+
   if (opts.existing) {
     txs.push(
       adminDb.tx.calendarEntries[opts.existing.id].update({
         content: opts.content,
         status: "draft",
-        source: "planning-center",
+        source,
         updatedAt: Date.now(),
-        updatedBy: "planning-center-prefill",
+        updatedBy: source === "rock" ? "rock-prefill" : "planning-center-prefill",
       }),
     );
   } else {
@@ -97,9 +101,9 @@ function upsertEntry(
       adminDb.tx.calendarEntries[entryId].update({
         content: opts.content,
         status: "draft",
-        source: "planning-center",
+        source,
         updatedAt: Date.now(),
-        updatedBy: "planning-center-prefill",
+        updatedBy: source === "rock" ? "rock-prefill" : "planning-center-prefill",
       }),
       adminDb.tx.calendarEntries[entryId].link({ week: opts.weekId }),
       adminDb.tx.calendarEntries[entryId].link({ row: opts.rowId }),
@@ -281,45 +285,57 @@ export async function POST(
       (didWrite ? written : skipped).push(slug);
     }
 
-    const seriesTitle =
-      sanDimasPlan?.seriesTitle ??
-      planningCenter.ranchoCucamonga?.seriesTitle ??
-      planningCenter.westCovina?.seriesTitle ??
-      null;
+    // --- Rock RMS: Series, Sermon Title, Speaker ---
+    const rockSermon = await getSermonForWeek(weekStart);
 
-    if (seriesTitle) {
-      const seriesId = await ensureSeriesForWeek(week.id, weekStart, seriesTitle);
-      const row = rowsBySlug.get("series");
-      if (row) {
-        const didWrite = upsertEntry(txs, {
-          rowId: row.id,
-          weekId: week.id,
-          content: jsonSeries(
-            seriesId,
-            seriesTitle,
-            extractWeekNumber(sanDimasPlan?.weekLabel ?? null),
-          ),
-          existing: entriesByRowId.get(row.id),
-        });
-        (didWrite ? written : skipped).push("series");
+    if (rockSermon) {
+      // Series (from Rock content channel 4)
+      if (rockSermon.seriesTitle) {
+        const seriesId = await ensureSeriesForWeek(week.id, weekStart, rockSermon.seriesTitle);
+        const row = rowsBySlug.get("series");
+        if (row) {
+          const didWrite = upsertEntry(txs, {
+            rowId: row.id,
+            weekId: week.id,
+            content: jsonSeries(
+              seriesId,
+              rockSermon.seriesTitle,
+              extractWeekNumber(sanDimasPlan?.weekLabel ?? null),
+            ),
+            source: "rock",
+            existing: entriesByRowId.get(row.id),
+          });
+          (didWrite ? written : skipped).push("series");
+        }
       }
-    }
 
-    const sermonTitle =
-      sanDimasPlan?.sermonTitle ??
-      planningCenter.ranchoCucamonga?.sermonTitle ??
-      planningCenter.westCovina?.sermonTitle ??
-      null;
+      // Sermon Title
+      const sermonTitleRow = rowsBySlug.get("sermon-title");
+      if (sermonTitleRow) {
+        const didWrite = upsertEntry(txs, {
+          rowId: sermonTitleRow.id,
+          weekId: week.id,
+          content: jsonText(rockSermon.sermonTitle),
+          source: "rock",
+          existing: entriesByRowId.get(sermonTitleRow.id),
+        });
+        (didWrite ? written : skipped).push("sermon-title");
+      }
 
-    const sermonTitleRow = rowsBySlug.get("sermon-title");
-    if (sermonTitleRow && sermonTitle) {
-      const didWrite = upsertEntry(txs, {
-        rowId: sermonTitleRow.id,
-        weekId: week.id,
-        content: jsonText(sermonTitle),
-        existing: entriesByRowId.get(sermonTitleRow.id),
-      });
-      (didWrite ? written : skipped).push("sermon-title");
+      // Speaker
+      if (rockSermon.speaker) {
+        const speakerRow = rowsBySlug.get("speaker");
+        if (speakerRow) {
+          const didWrite = upsertEntry(txs, {
+            rowId: speakerRow.id,
+            weekId: week.id,
+            content: jsonPeople([{ name: rockSermon.speaker, photoUrl: null }]),
+            source: "rock",
+            existing: entriesByRowId.get(speakerRow.id),
+          });
+          (didWrite ? written : skipped).push("speaker");
+        }
+      }
     }
 
     if (txs.length > 0) {
@@ -331,10 +347,13 @@ export async function POST(
       weekStart,
       written,
       skipped,
+      rock: rockSermon ? {
+        seriesTitle: rockSermon.seriesTitle,
+        sermonTitle: rockSermon.sermonTitle,
+        speaker: rockSermon.speaker,
+      } : null,
       planningCenter: {
         sourceOfTruth: sanDimasPlan?.campusName ?? null,
-        seriesTitle,
-        sermonTitle,
         songs,
         hostsByCampus: campusPlans.map((plan) => ({
           campusName: plan?.campusName ?? null,

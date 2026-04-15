@@ -84,7 +84,8 @@ export function WeekDetailSection({
               for (const child of children) {
                 const entry = entries.get(child.id);
                 const content = entry?.content ?? "";
-                const isChildSyncedFromPC = !!(child as Record<string, unknown>).campusId || (entry as Record<string, unknown> | undefined)?.source === "planning-center";
+                const childSource = (entry as Record<string, unknown> | undefined)?.source as string | undefined;
+                const isChildSyncedFromPC = !!(child as Record<string, unknown>).campusId || childSource === "planning-center" || childSource === "rock";
                 const rowEditable = isEditable && !isChildSyncedFromPC;
 
                 elements.push(
@@ -116,7 +117,8 @@ export function WeekDetailSection({
               // Regular row
               const entry = entries.get(row.id);
               const content = entry?.content ?? "";
-              const isSyncedFromPC = (entry as Record<string, unknown> | undefined)?.source === "planning-center";
+              const regularSource = (entry as Record<string, unknown> | undefined)?.source as string | undefined;
+              const isSyncedFromPC = regularSource === "planning-center" || regularSource === "rock";
               const rowEditable = isEditable && !isSyncedFromPC;
 
               elements.push(

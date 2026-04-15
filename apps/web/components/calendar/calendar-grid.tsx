@@ -377,7 +377,8 @@ function RowBlock({
       {/* Cells */}
       {weeks.map((week) => {
         const entry = entryMap.get(`${week.id}:${row.id}`);
-        const isSyncedFromPC = isRowSyncedFromPC || (entry as Record<string, unknown> | undefined)?.source === "planning-center";
+        const entrySource = (entry as Record<string, unknown> | undefined)?.source as string | undefined;
+        const isSyncedFromPC = isRowSyncedFromPC || entrySource === "planning-center" || entrySource === "rock";
 
         return (
           <CalendarCell

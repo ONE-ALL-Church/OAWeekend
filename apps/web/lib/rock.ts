@@ -265,6 +265,86 @@ export async function getWeekendServices(): Promise<WeekendService[]> {
   return results;
 }
 
+// --- Series channel ID (channel 4 = sermon series) ---
+
+const ROCK_SERIES_CHANNEL_ID = 4;
+
+export interface RockSermonForWeek {
+  sermonTitle: string;
+  speaker: string | null;
+  seriesTitle: string | null;
+  contentChannelItemId: number;
+}
+
+/**
+ * Find the sermon and series for a given weekend date from Rock.
+ *
+ * - Sermons live in channel 5 (ROCK_CONTENT_CHANNEL_ID) with startDateTime on Saturdays
+ * - Series live in channel 4 — the active series is the latest one whose startDateTime <= weekStart
+ * - Speaker comes from the sermon's "Speaker" attribute
+ *
+ * @param weekStart - Saturday date string (YYYY-MM-DD)
+ */
+export async function getSermonForWeek(weekStart: string): Promise<RockSermonForWeek | null> {
+  const sermonChannelId = process.env.ROCK_CONTENT_CHANNEL_ID;
+  if (!sermonChannelId) return null;
+
+  // The weekStart is a Saturday. Rock dates include time, so we need to match
+  // sermons whose startDateTime falls on this Saturday or the following Sunday.
+  const satDate = new Date(`${weekStart}T00:00:00`);
+  const sunDate = new Date(satDate);
+  sunDate.setDate(satDate.getDate() + 2); // Monday 00:00 as upper bound
+
+  const satStr = satDate.toISOString().slice(0, 10);
+  const sunStr = sunDate.toISOString().slice(0, 10);
+
+  // Find sermon for this weekend
+  const sermons = await rockSearch(
+    "contentchannelitems",
+    {
+      where: [
+        `ContentChannelId == ${sermonChannelId}`,
+        `StartDateTime >= "${satStr}"`,
+        `StartDateTime < "${sunStr}"`,
+      ].join(" AND "),
+      sort: "StartDateTime desc",
+      limit: 1,
+    },
+    ContentChannelItemSchema,
+  );
+
+  if (sermons.length === 0) return null;
+
+  const sermon = sermons[0];
+
+  // Fetch speaker attribute
+  const attrs = await rockAttributeValues("contentchannelitems", sermon.id);
+  const speaker = attrs.Speaker?.textValue || null;
+
+  // Find the active series — latest series whose start date is on or before this weekend
+  const seriesList = await rockSearch(
+    "contentchannelitems",
+    {
+      where: [
+        `ContentChannelId == ${ROCK_SERIES_CHANNEL_ID}`,
+        `StartDateTime <= "${sunStr}"`,
+      ].join(" AND "),
+      sort: "StartDateTime desc",
+      limit: 1,
+    },
+    ContentChannelItemSchema,
+  );
+
+  const seriesTitle = seriesList.length > 0 ? seriesList[0].title : null;
+
+  return {
+    sermonTitle: sermon.title,
+    speaker,
+    seriesTitle,
+    contentChannelItemId: sermon.id,
+  };
+}
+
 /**
  * Fetch all Featured Events from Rock Calendar 1 (Public) using V2 API.
  *

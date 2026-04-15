@@ -70,7 +70,7 @@ export type CalendarFieldType =
 
 export type CalendarEntryStatus = "empty" | "draft" | "confirmed";
 
-export type CalendarEntrySource = "manual" | "planning-center";
+export type CalendarEntrySource = "manual" | "planning-center" | "rock";
 
 export interface TextContent {
   value: string;
