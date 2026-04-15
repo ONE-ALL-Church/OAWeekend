@@ -1,17 +1,13 @@
 "use client";
 
-import { use, useState, useEffect, useRef, useCallback } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import db from "@/lib/instant";
 import { useSession } from "@/hooks/use-session";
 import { useDisplayBySlug, sendHeartbeat } from "@/hooks/use-displays";
 import { CaptionOverlay } from "@/components/caption-display";
+import type { CaptionLine } from "@/components/caption-display";
 import { HEARTBEAT_INTERVAL_MS } from "@oaweekend/shared";
 
-interface CaptionLine {
-  id: number;
-  text: string;
-  timestamp: number;
-}
 
 function DisplayRenderer({
   display,
@@ -29,22 +25,20 @@ function DisplayRenderer({
   const sessionId = display.activeSessionId || null;
   const { session } = useSession(sessionId ?? "__none__");
 
-  const [lines, setLines] = useState<CaptionLine[]>([]);
+  const [completedLines, setCompletedLines] = useState<CaptionLine[]>([]);
   const lineIdRef = useRef(0);
-  const interimRef = useRef<string>("");
   const prevSessionIdRef = useRef<string | null>(sessionId);
 
-  // Clear caption lines when session changes
+  // Clear caption state when session changes
   useEffect(() => {
     if (prevSessionIdRef.current !== sessionId) {
-      setLines([]);
+      setCompletedLines([]);
       lineIdRef.current = 0;
-      interimRef.current = "";
       prevSessionIdRef.current = sessionId;
     }
   }, [sessionId]);
 
-  // Subscribe to transcript topic — use stable room key
+  // Subscribe to transcript topic
   const room = db.room("captions", sessionId ?? "__none__");
   db.rooms.useTopicEffect(room, "transcript", (msg) => {
     if (!sessionId) return;
@@ -58,8 +52,7 @@ function DisplayRenderer({
     };
 
     if (data.kind === "final") {
-      interimRef.current = "";
-      setLines((prev) => [
+      setCompletedLines((prev) => [
         ...prev,
         {
           id: lineIdRef.current++,
@@ -67,8 +60,6 @@ function DisplayRenderer({
           timestamp: Date.now(),
         },
       ]);
-    } else {
-      interimRef.current = data.text;
     }
   });
 
@@ -137,7 +128,7 @@ function DisplayRenderer({
         }
         maxLines={display.maxLines ?? 3}
         paused={session.paused ?? false}
-        lines={lines}
+        completedLines={completedLines}
         textColorClass={textClass}
       />
     </div>
