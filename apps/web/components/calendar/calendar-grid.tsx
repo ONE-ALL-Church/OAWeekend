@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, forwardRef } from "react";
+import React, { useState, useMemo, useCallback, forwardRef } from "react";
 import Link from "next/link";
 import type {
   CalendarSectionWithRows,
@@ -265,20 +265,74 @@ function SectionBlock({
             ))}
 
           {/* Manual rows (campaigns, or all rows if not events section) */}
-          {manualRows.map((row, rowIdx) => {
-            const isLastRow = rowIdx === manualRows.length - 1;
-            return (
-              <RowBlock
-                key={row.id}
-                row={row}
-                weeks={weeks}
-                entryMap={entryMap}
-                isLastRow={isLastRow}
-                isEditable={isEditable}
-                onCellClick={onCellClick}
-              />
-            );
-          })}
+          {(() => {
+            const elements: React.ReactNode[] = [];
+
+            for (let i = 0; i < manualRows.length; i++) {
+              const row = manualRows[i]!;
+              const parentRowId = (row as Record<string, unknown>).parentRowId as string | undefined;
+
+              // Skip child rows — they're rendered under their parent
+              if (parentRowId) continue;
+
+              const children = manualRows.filter(
+                (r) => (r as Record<string, unknown>).parentRowId === row.id,
+              );
+
+              if (children.length > 0) {
+                // Parent header row
+                elements.push(
+                  <ParentRowHeader
+                    key={`parent-${row.id}`}
+                    name={row.name}
+                    weeks={weeks}
+                    isLastRow={false}
+                  />,
+                );
+
+                children.forEach((child, childIdx) => {
+                  // Check if this is the last row in the entire section
+                  const isLastChild = childIdx === children.length - 1;
+                  const remainingNonChildRows = manualRows.slice(i + 1).filter(
+                    (r) => !(r as Record<string, unknown>).parentRowId,
+                  );
+                  const isLastInSection = isLastChild && remainingNonChildRows.length === 0;
+
+                  elements.push(
+                    <RowBlock
+                      key={child.id}
+                      row={child}
+                      weeks={weeks}
+                      entryMap={entryMap}
+                      isLastRow={isLastInSection}
+                      isEditable={isEditable}
+                      isSubRow={true}
+                      onCellClick={onCellClick}
+                    />,
+                  );
+                });
+              } else {
+                // Regular row
+                const isLast = manualRows.slice(i + 1).every(
+                  (r) => !!(r as Record<string, unknown>).parentRowId,
+                );
+
+                elements.push(
+                  <RowBlock
+                    key={row.id}
+                    row={row}
+                    weeks={weeks}
+                    entryMap={entryMap}
+                    isLastRow={isLast}
+                    isEditable={isEditable}
+                    isSubRow={false}
+                    onCellClick={onCellClick}
+                  />,
+                );
+              }
+            }
+            return elements;
+          })()}
         </>
       )}
     </>
@@ -291,6 +345,7 @@ function RowBlock({
   entryMap,
   isLastRow,
   isEditable,
+  isSubRow,
   onCellClick,
 }: {
   row: CalendarRow;
@@ -298,6 +353,7 @@ function RowBlock({
   entryMap: Map<string, CalendarEntry>;
   isLastRow: boolean;
   isEditable: boolean;
+  isSubRow: boolean;
   onCellClick: (cell: EditingCell) => void;
 }) {
   const borderClass = isLastRow
@@ -308,7 +364,9 @@ function RowBlock({
     <>
       {/* Row label */}
       <div
-        className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center`}
+        className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center ${
+          isSubRow ? "pl-8 text-oa-black-700" : ""
+        }`}
       >
         {row.name}
       </div>
@@ -316,14 +374,15 @@ function RowBlock({
       {/* Cells */}
       {weeks.map((week) => {
         const entry = entryMap.get(`${week.id}:${row.id}`);
+        const isSyncedFromPC = (entry as Record<string, unknown> | undefined)?.source === "planning-center";
 
         return (
           <CalendarCell
             key={`${week.id}:${row.id}`}
             content={entry?.content ?? ""}
             fieldType={row.fieldType as CalendarFieldType}
-            status={entry?.status ?? "empty"}
             isEditable={isEditable}
+            isSyncedFromPC={isSyncedFromPC}
             isLastRow={isLastRow}
             onClick={() =>
               onCellClick({
@@ -339,6 +398,36 @@ function RowBlock({
           />
         );
       })}
+    </>
+  );
+}
+
+function ParentRowHeader({
+  name,
+  weeks,
+  isLastRow,
+}: {
+  name: string;
+  weeks: CalendarWeekWithEntries[];
+  isLastRow: boolean;
+}) {
+  const borderClass = isLastRow
+    ? "border-b-2 border-b-oa-stone-200"
+    : "border-b border-b-oa-stone-200/50";
+
+  return (
+    <>
+      <div
+        className={`px-4 py-2 text-xs font-bold text-oa-black-900 bg-oa-sand-100/20 ${borderClass} border-r border-r-oa-stone-200/30 flex items-center`}
+      >
+        {name}
+      </div>
+      {weeks.map((week) => (
+        <div
+          key={`parent-${name}-${week.id}`}
+          className={`bg-oa-sand-100/20 ${borderClass} border-r border-r-oa-stone-200/20 min-h-[40px]`}
+        />
+      ))}
     </>
   );
 }

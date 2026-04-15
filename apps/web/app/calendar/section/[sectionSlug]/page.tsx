@@ -13,7 +13,6 @@ import { useUserEditableSections } from "@/hooks/use-calendar-roles";
 import { CalendarCell } from "@/components/calendar/calendar-cell";
 import { CellEditor } from "@/components/calendar/cell-editor";
 import type { CalendarFieldType } from "@oaweekend/shared";
-import type { CalendarEntry } from "@/lib/instant";
 
 export default function SectionDetailPage() {
   const params = useParams<{ sectionSlug: string }>();
@@ -171,8 +170,8 @@ export default function SectionDetailPage() {
                       <CalendarCell
                         content={entry?.content ?? ""}
                         fieldType={row.fieldType as CalendarFieldType}
-                        status={entry?.status ?? "empty"}
                         isEditable={!!isEditable}
+                        isSyncedFromPC={(entry as Record<string, unknown> | undefined)?.source === "planning-center"}
                         isLastRow={isLastRow}
                         onClick={() =>
                           setEditingCell({
