@@ -166,7 +166,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
           </button>
         )}
 
-      <div ref={mergedRef} className="overflow-x-auto">
+      <div ref={mergedRef} className="overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-oa-stone-100/50 [&::-webkit-scrollbar-thumb]:bg-oa-stone-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-oa-stone-300">
         <div
           className="grid"
           style={{
