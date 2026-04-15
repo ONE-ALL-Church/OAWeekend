@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, forwardRef } from "react";
+import React, { useState, useMemo, useCallback, forwardRef, useEffect, useRef } from "react";
 import Link from "next/link";
 import type {
   CalendarSectionWithRows,
@@ -101,9 +101,72 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
 
   const gridCols = `180px repeat(${weeks.length}, minmax(140px, 1fr))`;
 
+  // Scroll buttons
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 10);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    updateScrollState();
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    const ro = new ResizeObserver(updateScrollState);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateScrollState);
+      ro.disconnect();
+    };
+  }, [updateScrollState, weeks.length]);
+
+  const scrollBy = useCallback((dir: "left" | "right") => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "left" ? -420 : 420, behavior: "smooth" });
+  }, []);
+
+  // Merge refs — forward ref + local ref
+  const mergedRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      (scrollContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      if (typeof ref === "function") ref(node);
+      else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    },
+    [ref],
+  );
+
   return (
     <>
-      <div ref={ref} className="overflow-x-auto">
+      <div className="relative">
+        {/* Left scroll button */}
+        {canScrollLeft && (
+          <button
+            onClick={() => scrollBy("left")}
+            className="absolute left-[180px] top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-oa-white/90 border border-oa-stone-200 shadow-md flex items-center justify-center text-oa-black-700 hover:bg-oa-sand-100 transition-colors"
+            aria-label="Scroll left"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        )}
+        {/* Right scroll button */}
+        {canScrollRight && (
+          <button
+            onClick={() => scrollBy("right")}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-oa-white/90 border border-oa-stone-200 shadow-md flex items-center justify-center text-oa-black-700 hover:bg-oa-sand-100 transition-colors"
+            aria-label="Scroll right"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        )}
+
+      <div ref={mergedRef} className="overflow-x-auto">
         <div
           className="grid"
           style={{
@@ -183,6 +246,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
             );
           })}
         </div>
+      </div>
       </div>
 
       {/* Cell editor modal */}
