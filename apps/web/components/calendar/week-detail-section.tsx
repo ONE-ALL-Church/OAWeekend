@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import type { CalendarSectionWithRows, CalendarEntry, CalendarRow } from "@/lib/instant";
+import type { CalendarSectionWithRows, CalendarEntry } from "@/lib/instant";
 import { CellEditor } from "./cell-editor";
 import { PersonChip } from "./person-chip";
-import type { CalendarFieldType, PersonPickerContent, TagListContent, MultilineTextContent, TextContent } from "@oaweekend/shared";
+import type {
+  CalendarFieldType,
+  PersonPickerContent,
+  TagListContent,
+  MultilineTextContent,
+  TextContent,
+  SeriesPickerContent,
+  CampusPickerContent,
+} from "@oaweekend/shared";
 
 interface WeekDetailSectionProps {
   section: CalendarSectionWithRows;
@@ -40,36 +48,112 @@ export function WeekDetailSection({
           </span>
         </div>
 
-        {/* Field rows */}
-        {section.rows.map((row) => {
-          const entry = entries.get(row.id);
-          const content = entry?.content ?? "";
+        {/* Field rows with sub-row grouping */}
+        {(() => {
+          const rows = section.rows;
+          const elements: React.ReactNode[] = [];
 
-          return (
-            <div
-              key={row.id}
-              className="flex items-start px-5 py-3 border-b border-oa-stone-200/30 last:border-b-0 group hover:bg-oa-sand-100/35 transition-colors duration-[220ms]"
-            >
-              <div className="w-[160px] shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wider text-oa-black-700">
-                {row.name}
-              </div>
-              <div className="flex-1 text-sm text-oa-black-900">
-                <FieldValueDisplay
-                  content={content}
-                  fieldType={row.fieldType as CalendarFieldType}
-                />
-              </div>
-              {isEditable && (
-                <button
-                  onClick={() => setEditingRowId(row.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-[220ms] text-oa-stone-300 hover:text-oa-black-700 text-sm ml-2 shrink-0"
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i]!;
+            const parentRowId = (row as Record<string, unknown>).parentRowId as string | undefined;
+
+            // Skip child rows — rendered under their parent
+            if (parentRowId) continue;
+
+            const children = rows.filter(
+              (r) => (r as Record<string, unknown>).parentRowId === row.id,
+            );
+
+            if (children.length > 0) {
+              // Parent header
+              elements.push(
+                <div
+                  key={`parent-${row.id}`}
+                  className="flex items-start px-5 py-2.5 border-b border-oa-stone-200/30 bg-oa-sand-100/20"
                 >
-                  ✎
-                </button>
-              )}
-            </div>
-          );
-        })}
+                  <div className="w-[160px] shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wider text-oa-black-900">
+                    {row.name}
+                  </div>
+                </div>,
+              );
+
+              // Children
+              for (const child of children) {
+                const entry = entries.get(child.id);
+                const content = entry?.content ?? "";
+                const isSyncedFromPC = (entry as Record<string, unknown> | undefined)?.source === "planning-center";
+                const rowEditable = isEditable && !isSyncedFromPC;
+
+                elements.push(
+                  <div
+                    key={child.id}
+                    className="flex items-start px-5 py-3 border-b border-oa-stone-200/30 last:border-b-0 group hover:bg-oa-sand-100/35 transition-colors duration-[220ms] pl-10"
+                  >
+                    <div className="w-[140px] shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wider text-oa-black-700">
+                      {child.name}
+                    </div>
+                    <div className="flex-1 text-sm text-oa-black-900">
+                      <FieldValueDisplay
+                        content={content}
+                        fieldType={child.fieldType as CalendarFieldType}
+                      />
+                    </div>
+                    {isSyncedFromPC && content && content !== "{}" && (
+                      <span className="text-[9px] font-bold text-[#00A4C7]/60 ml-1 shrink-0" title="Synced from Planning Center">
+                        PC
+                      </span>
+                    )}
+                    {rowEditable && (
+                      <button
+                        onClick={() => setEditingRowId(child.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-[220ms] text-oa-stone-300 hover:text-oa-black-700 text-sm ml-2 shrink-0"
+                      >
+                        ✎
+                      </button>
+                    )}
+                  </div>,
+                );
+              }
+            } else {
+              // Regular row
+              const entry = entries.get(row.id);
+              const content = entry?.content ?? "";
+              const isSyncedFromPC = (entry as Record<string, unknown> | undefined)?.source === "planning-center";
+              const rowEditable = isEditable && !isSyncedFromPC;
+
+              elements.push(
+                <div
+                  key={row.id}
+                  className="flex items-start px-5 py-3 border-b border-oa-stone-200/30 last:border-b-0 group hover:bg-oa-sand-100/35 transition-colors duration-[220ms]"
+                >
+                  <div className="w-[160px] shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wider text-oa-black-700">
+                    {row.name}
+                  </div>
+                  <div className="flex-1 text-sm text-oa-black-900">
+                    <FieldValueDisplay
+                      content={content}
+                      fieldType={row.fieldType as CalendarFieldType}
+                    />
+                  </div>
+                  {isSyncedFromPC && content && content !== "{}" && (
+                    <span className="text-[9px] font-bold text-[#00A4C7]/60 ml-1 shrink-0" title="Synced from Planning Center">
+                      PC
+                    </span>
+                  )}
+                  {rowEditable && (
+                    <button
+                      onClick={() => setEditingRowId(row.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-[220ms] text-oa-stone-300 hover:text-oa-black-700 text-sm ml-2 shrink-0"
+                    >
+                      ✎
+                    </button>
+                  )}
+                </div>,
+              );
+            }
+          }
+          return elements;
+        })()}
       </div>
 
       {/* Edit modal */}
@@ -149,6 +233,33 @@ function FieldValueDisplay({
             >
               {tag}
             </span>
+          ))}
+        </div>
+      );
+    }
+    case "seriesPicker": {
+      const v = parsed as unknown as SeriesPickerContent;
+      if (!v.seriesId && !v.label) {
+        return <span className="text-oa-stone-300 italic text-[13px]">Not assigned</span>;
+      }
+      return (
+        <div className="flex items-center gap-2 text-[14px]">
+          <span className="font-semibold">{v.label ?? "Series"}</span>
+          {v.weekNumber > 0 && (
+            <span className="text-[12px] text-oa-stone-300">Week {v.weekNumber}</span>
+          )}
+        </div>
+      );
+    }
+    case "campusPicker": {
+      const v = parsed as unknown as CampusPickerContent;
+      if (!v.campuses?.length) {
+        return <span className="text-oa-stone-300 italic text-[13px]">Not assigned</span>;
+      }
+      return (
+        <div className="text-[14px] leading-relaxed">
+          {v.campuses.map((campus) => (
+            <div key={campus.id || campus.name}>{campus.name}</div>
           ))}
         </div>
       );
