@@ -69,7 +69,7 @@ function CellValueRenderer({
   switch (fieldType) {
     case "text": {
       const v = value as TextContent;
-      if (v.songAuthor || v.songKey || v.songCcli) {
+      if (v.songAuthor || v.songKey || v.songCcli || v.songLeader || v.songDescription) {
         return (
           <SongHoverCard song={v}>
             <span className="cursor-default">{v.value}</span>

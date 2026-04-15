@@ -78,9 +78,11 @@ export interface TextContent {
   songKey?: string | null;
   songAuthor?: string | null;
   songCcli?: string | null;
-  songCopyright?: string | null;
   songThemes?: string | null;
   songLastScheduled?: string | null;
+  songDescription?: string | null;
+  songLengthSeconds?: number | null;
+  songLeader?: string | null;
 }
 
 export interface MultilineTextContent {

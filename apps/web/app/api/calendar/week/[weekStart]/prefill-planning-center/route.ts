@@ -245,9 +245,11 @@ export async function POST(
         songKey: song.key ?? null,
         songAuthor: song.author ?? null,
         songCcli: song.ccliNumber ?? null,
-        songCopyright: song.copyright ?? null,
         songThemes: song.themes ?? null,
         songLastScheduled: song.lastScheduled ?? null,
+        songDescription: song.description ?? null,
+        songLengthSeconds: song.lengthSeconds ?? null,
+        songLeader: song.songLeader ?? null,
       });
       const didWrite = upsertEntry(txs, {
         rowId: row.id,

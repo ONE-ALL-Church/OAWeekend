@@ -14,7 +14,7 @@ export function SongHoverCard({ song, children }: SongHoverCardProps) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
 
-  const hasDetails = song.songAuthor || song.songKey || song.songCcli;
+  const hasDetails = song.songAuthor || song.songKey || song.songCcli || song.songLeader || song.songDescription;
 
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
@@ -56,14 +56,19 @@ export function SongHoverCard({ song, children }: SongHoverCardProps) {
           style={{ top: pos.top, left: pos.left }}
         >
           <div className="px-4 py-3.5 space-y-2">
-            {/* Song title + key */}
-            <div className="flex items-center gap-2">
+            {/* Song title + key + duration */}
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-bold text-oa-black-900 leading-tight">
                 {song.value}
               </p>
               {song.songKey && (
                 <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-oa-yellow-500/15 text-oa-yellow-600 shrink-0">
                   {song.songKey}
+                </span>
+              )}
+              {song.songLengthSeconds != null && song.songLengthSeconds > 0 && (
+                <span className="text-[10px] text-oa-stone-300">
+                  {Math.floor(song.songLengthSeconds / 60)}:{String(song.songLengthSeconds % 60).padStart(2, "0")}
                 </span>
               )}
             </div>
@@ -79,28 +84,34 @@ export function SongHoverCard({ song, children }: SongHoverCardProps) {
               </div>
             )}
 
-            {/* CCLI + Copyright */}
-            {(song.songCcli || song.songCopyright) && (
-              <div className="pt-1.5 border-t border-oa-stone-200/50 space-y-1">
-                {song.songCcli && (
-                  <div className="flex items-center gap-2 text-[11px] text-oa-stone-300">
-                    <span className="font-semibold">CCLI</span>
-                    <span>{song.songCcli}</span>
-                  </div>
-                )}
-                {song.songCopyright && (
-                  <p className="text-[10px] text-oa-stone-300 leading-snug">
-                    {song.songCopyright}
-                  </p>
-                )}
+            {/* Song leader */}
+            {song.songLeader && (
+              <div className="flex items-center gap-2 text-[12px] text-oa-black-700">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" className="shrink-0 text-oa-stone-300">
+                  <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 12h10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                </svg>
+                <span>Led by <span className="font-semibold">{song.songLeader}</span></span>
               </div>
             )}
 
-            {/* Last scheduled */}
-            {song.songLastScheduled && (
-              <p className="text-[10px] text-oa-stone-300 italic">
-                Last used: {song.songLastScheduled}
+            {/* Description / notes */}
+            {song.songDescription && (
+              <p className="text-[11px] text-oa-black-700 leading-relaxed italic">
+                {song.songDescription}
               </p>
+            )}
+
+            {/* CCLI + Last scheduled */}
+            {(song.songCcli || song.songLastScheduled) && (
+              <div className="pt-1.5 border-t border-oa-stone-200/50 flex items-center gap-3 text-[10px] text-oa-stone-300">
+                {song.songCcli && (
+                  <span><span className="font-semibold">CCLI</span> {song.songCcli}</span>
+                )}
+                {song.songLastScheduled && (
+                  <span>Last used: {song.songLastScheduled}</span>
+                )}
+              </div>
             )}
           </div>
         </div>,

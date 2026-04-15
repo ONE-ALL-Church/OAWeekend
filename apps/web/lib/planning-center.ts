@@ -54,6 +54,7 @@ const itemSchema = z.object({
     description: z.string().nullable().optional(),
     item_type: z.string().nullable().optional(),
     key_name: z.string().nullable().optional(),
+    length: z.number().nullable().optional(),
     sequence: z.number().nullable().optional(),
     title: z.string().nullable().optional(),
   }),
@@ -61,7 +62,18 @@ const itemSchema = z.object({
     song: z.object({
       data: z.object({ type: z.string(), id: z.string() }).nullable().optional(),
     }).optional(),
+    item_notes: z.object({
+      data: z.array(z.object({ type: z.string(), id: z.string() })).optional(),
+    }).optional(),
   }).optional(),
+});
+
+const itemNoteSchema = z.object({
+  id: z.string(),
+  attributes: z.object({
+    category_name: z.string().nullable().optional(),
+    content: z.string().nullable().optional(),
+  }),
 });
 
 const songSchema = z.object({
@@ -118,9 +130,11 @@ export interface WeekendPlanSummary {
     key: string | null;
     author: string | null;
     ccliNumber: string | null;
-    copyright: string | null;
     themes: string | null;
     lastScheduled: string | null;
+    description: string | null;
+    lengthSeconds: number | null;
+    songLeader: string | null;
   }>;
   hosts: PlanningCenterPerson[];
   worshipLeaders: PlanningCenterPerson[];
@@ -161,10 +175,17 @@ async function listPlans(serviceTypeId: number, perPage = 25) {
   );
 }
 
+// Included records can be Song or ItemNote — use passthrough to avoid union failures
+const includedRecordSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  attributes: z.record(z.unknown()),
+}).passthrough();
+
 async function listPlanItems(serviceTypeId: number, planId: string) {
   return pcoFetch(
-    `/services/v2/service_types/${serviceTypeId}/plans/${planId}/items?per_page=100&include=song`,
-    z.object({ data: z.array(itemSchema), included: z.array(songSchema).optional() }),
+    `/services/v2/service_types/${serviceTypeId}/plans/${planId}/items?per_page=100&include=song,item_notes`,
+    z.object({ data: z.array(itemSchema), included: z.array(includedRecordSchema).optional() }),
   );
 }
 
@@ -304,29 +325,50 @@ async function buildWeekendPlanSummary(
   ]);
 
   const items = itemsResult.data;
-  const includedSongs = itemsResult.included ?? [];
+  const includedRecords = itemsResult.included ?? [];
   const teamMembers = teamMembersResult.data;
   const planTimes = planTimesResult.data;
 
-  // Build a lookup of included song details by ID
-  const songDetailsById = new Map<string, z.infer<typeof songSchema>>();
-  for (const s of includedSongs) {
-    songDetailsById.set(s.id, s);
+  // Build lookups for included song details and item notes by type
+  const songDetailsById = new Map<string, Record<string, unknown>>();
+  const noteById = new Map<string, Record<string, unknown>>();
+  for (const rec of includedRecords) {
+    if (rec.type === "Song") {
+      songDetailsById.set(rec.id, rec.attributes);
+    } else if (rec.type === "ItemNote") {
+      noteById.set(rec.id, rec.attributes);
+    }
   }
+
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : null);
 
   const songs = items
     .filter((item) => item.attributes.item_type === "song")
     .map((item) => {
       const songId = item.relationships?.song?.data?.id;
       const details = songId ? songDetailsById.get(songId) : undefined;
+
+      // Get "By" note (song leader) from item_notes
+      const noteIds = item.relationships?.item_notes?.data ?? [];
+      let songLeader: string | null = null;
+      for (const nr of noteIds) {
+        const note = noteById.get(nr.id);
+        if (note?.category_name === "By" && note.content) {
+          songLeader = String(note.content).trim();
+          break;
+        }
+      }
+
       return {
         title: item.attributes.title?.trim() ?? "",
         key: item.attributes.key_name?.trim() ?? null,
-        author: details?.attributes.author?.trim() ?? null,
-        ccliNumber: details?.attributes.ccli_number != null ? String(details.attributes.ccli_number).trim() : null,
-        copyright: details?.attributes.copyright?.trim() ?? null,
-        themes: details?.attributes.themes?.trim() ?? null,
-        lastScheduled: details?.attributes.last_scheduled_short_dates?.trim() ?? null,
+        author: str(details?.author) ?? null,
+        ccliNumber: details?.ccli_number != null ? String(details.ccli_number).trim() : null,
+        themes: str(details?.themes) ?? null,
+        lastScheduled: str(details?.last_scheduled_short_dates) ?? null,
+        description: item.attributes.description?.trim() ?? null,
+        lengthSeconds: item.attributes.length ?? null,
+        songLeader,
       };
     })
     .filter((song) => song.title);

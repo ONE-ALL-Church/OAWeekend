@@ -199,7 +199,7 @@ function FieldValueDisplay({
     case "text": {
       const v = parsed as unknown as TextContent;
       if (!v.value) return <span className="text-oa-stone-300 italic text-[13px]">Not assigned</span>;
-      if (v.songAuthor || v.songKey || v.songCcli) {
+      if (v.songAuthor || v.songKey || v.songCcli || v.songLeader || v.songDescription) {
         return (
           <SongHoverCard song={v}>
             <span className="text-[14px] cursor-default">{v.value}</span>
