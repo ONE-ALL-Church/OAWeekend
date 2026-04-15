@@ -71,8 +71,11 @@ export function WeekDetailSection({
                   key={`parent-${row.id}`}
                   className="flex items-start px-5 py-2.5 border-b border-oa-stone-200/30 bg-oa-sand-100/20"
                 >
-                  <div className="w-[160px] shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wider text-oa-black-900">
-                    {row.name}
+                  <div className="w-[160px] shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wider text-oa-black-900 flex items-center gap-1.5">
+                    <span>{row.name}</span>
+                    <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#00A4C7]/12 text-[8px] font-bold text-[#00A4C7] normal-case tracking-normal" title="Synced from Planning Center">
+                      PC
+                    </span>
                   </div>
                 </div>,
               );
@@ -98,11 +101,6 @@ export function WeekDetailSection({
                         fieldType={child.fieldType as CalendarFieldType}
                       />
                     </div>
-                    {isChildSyncedFromPC && (
-                      <span className="text-[9px] font-bold text-[#00A4C7]/60 ml-1 shrink-0" title="Synced from Planning Center">
-                        PC
-                      </span>
-                    )}
                     {rowEditable && (
                       <button
                         onClick={() => setEditingRowId(child.id)}

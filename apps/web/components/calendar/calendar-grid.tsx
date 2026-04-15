@@ -421,9 +421,12 @@ function ParentRowHeader({
   return (
     <>
       <div
-        className={`px-4 py-2 text-xs font-bold text-oa-black-900 bg-oa-sand-100/20 ${borderClass} border-r border-r-oa-stone-200/30 flex items-center`}
+        className={`px-4 py-2 text-xs font-bold text-oa-black-900 bg-oa-sand-100/20 ${borderClass} border-r border-r-oa-stone-200/30 flex items-center gap-1.5`}
       >
-        {name}
+        <span>{name}</span>
+        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#00A4C7]/12 text-[8px] font-bold text-[#00A4C7]" title="Synced from Planning Center">
+          PC
+        </span>
       </div>
       {weeks.map((week) => (
         <div
