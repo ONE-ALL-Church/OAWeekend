@@ -36,8 +36,20 @@ async function seed() {
     ];
 
     const rows = CALENDAR_DEFAULT_ROWS[sectionDef.slug] ?? [];
+
+    // First pass: create IDs for all rows; track slug → id for parentSlug resolution
+    const slugToId = new Map<string, string>();
     for (const rowDef of rows) {
-      const rowId = id();
+      slugToId.set(rowDef.slug, id());
+    }
+
+    // Second pass: build transactions
+    for (const rowDef of rows) {
+      const rowId = slugToId.get(rowDef.slug)!;
+      const parentRowId = rowDef.parentSlug
+        ? slugToId.get(rowDef.parentSlug) ?? ""
+        : "";
+
       txns.push(
         adminDb.tx.calendarRows[rowId].update({
           name: rowDef.name,
@@ -45,6 +57,8 @@ async function seed() {
           fieldType: rowDef.fieldType,
           sortOrder: rowDef.sortOrder,
           campusSpecific: rowDef.campusSpecific,
+          campusId: rowDef.campusId ?? "",
+          parentRowId,
           createdAt: Date.now(),
         }),
         adminDb.tx.calendarRows[rowId].link({ section: sectionId }),

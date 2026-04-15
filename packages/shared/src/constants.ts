@@ -69,6 +69,18 @@ export const CALENDAR_ENTRY_STATUS_OPTIONS = [
 
 export const CALENDAR_WEEKS_PER_PAGE = 8;
 
+export const PLANNING_CENTER_CAMPUS_IDS = {
+  sanDimas: "235",
+  ranchoCucamonga: "228631",
+  westCovina: "962810",
+} as const;
+
+export const PLANNING_CENTER_CAMPUS_LIST = [
+  { key: "sanDimas" as const, id: PLANNING_CENTER_CAMPUS_IDS.sanDimas, name: "San Dimas" },
+  { key: "ranchoCucamonga" as const, id: PLANNING_CENTER_CAMPUS_IDS.ranchoCucamonga, name: "Rancho Cucamonga" },
+  { key: "westCovina" as const, id: PLANNING_CENTER_CAMPUS_IDS.westCovina, name: "West Covina" },
+] as const;
+
 export const CALENDAR_DEFAULT_SECTIONS = [
   { name: "Service Planning", slug: "service-planning", color: "#272728", sortOrder: 0 },
   { name: "Events & Campaigns", slug: "events-campaigns", color: "#6873B3", sortOrder: 1 },
@@ -78,15 +90,27 @@ export const CALENDAR_DEFAULT_SECTIONS = [
   { name: "Worship", slug: "worship", color: "#FFC905", sortOrder: 5 },
 ] as const;
 
-export const CALENDAR_DEFAULT_ROWS: Record<string, Array<{ name: string; slug: string; fieldType: string; sortOrder: number; campusSpecific: boolean }>> = {
+export const CALENDAR_DEFAULT_ROWS: Record<string, Array<{
+  name: string;
+  slug: string;
+  fieldType: string;
+  sortOrder: number;
+  campusSpecific: boolean;
+  campusId?: string;
+  parentSlug?: string;
+}>> = {
   "service-planning": [
     { name: "Series", slug: "series", fieldType: "seriesPicker", sortOrder: 0, campusSpecific: false },
-    { name: "Speaker", slug: "speaker", fieldType: "personPicker", sortOrder: 1, campusSpecific: false },
-    { name: "Host", slug: "host", fieldType: "personPicker", sortOrder: 2, campusSpecific: false },
-    { name: "Communion", slug: "communion", fieldType: "tagList", sortOrder: 3, campusSpecific: false },
-    { name: "In Service Video", slug: "in-service-video", fieldType: "multilineText", sortOrder: 4, campusSpecific: false },
-    { name: "Campus - Live Speaking", slug: "campus-live", fieldType: "campusPicker", sortOrder: 5, campusSpecific: false },
-    { name: "Special", slug: "special", fieldType: "text", sortOrder: 6, campusSpecific: false },
+    { name: "Sermon Title", slug: "sermon-title", fieldType: "text", sortOrder: 1, campusSpecific: false },
+    { name: "Speaker", slug: "speaker", fieldType: "personPicker", sortOrder: 2, campusSpecific: false },
+    { name: "Host", slug: "host", fieldType: "personPicker", sortOrder: 3, campusSpecific: false },
+    { name: "San Dimas", slug: "host-san-dimas", fieldType: "personPicker", sortOrder: 3.1, campusSpecific: false, campusId: PLANNING_CENTER_CAMPUS_IDS.sanDimas, parentSlug: "host" },
+    { name: "Rancho Cucamonga", slug: "host-rancho", fieldType: "personPicker", sortOrder: 3.2, campusSpecific: false, campusId: PLANNING_CENTER_CAMPUS_IDS.ranchoCucamonga, parentSlug: "host" },
+    { name: "West Covina", slug: "host-west-covina", fieldType: "personPicker", sortOrder: 3.3, campusSpecific: false, campusId: PLANNING_CENTER_CAMPUS_IDS.westCovina, parentSlug: "host" },
+    { name: "Communion", slug: "communion", fieldType: "tagList", sortOrder: 4, campusSpecific: false },
+    { name: "In Service Video", slug: "in-service-video", fieldType: "multilineText", sortOrder: 5, campusSpecific: false },
+    { name: "Campus - Live Speaking", slug: "campus-live", fieldType: "campusPicker", sortOrder: 6, campusSpecific: false },
+    { name: "Special", slug: "special", fieldType: "text", sortOrder: 7, campusSpecific: false },
   ],
   "events-campaigns": [
     { name: "All Church Events", slug: "all-church-events", fieldType: "multilineText", sortOrder: 0, campusSpecific: false },
@@ -125,9 +149,13 @@ export const CALENDAR_DEFAULT_ROWS: Record<string, Array<{ name: string; slug: s
     { name: "YouTube Series", slug: "yt-series", fieldType: "text", sortOrder: 7, campusSpecific: false },
   ],
   "worship": [
-    { name: "Song 1", slug: "song-1", fieldType: "text", sortOrder: 0, campusSpecific: false },
-    { name: "Song 2", slug: "song-2", fieldType: "text", sortOrder: 1, campusSpecific: false },
-    { name: "Song 3", slug: "song-3", fieldType: "text", sortOrder: 2, campusSpecific: false },
-    { name: "Song 4", slug: "song-4", fieldType: "text", sortOrder: 3, campusSpecific: false },
+    { name: "Worship Leader", slug: "worship-leader", fieldType: "personPicker", sortOrder: 0, campusSpecific: false },
+    { name: "San Dimas", slug: "worship-leader-san-dimas", fieldType: "personPicker", sortOrder: 0.1, campusSpecific: false, campusId: PLANNING_CENTER_CAMPUS_IDS.sanDimas, parentSlug: "worship-leader" },
+    { name: "Rancho Cucamonga", slug: "worship-leader-rancho", fieldType: "personPicker", sortOrder: 0.2, campusSpecific: false, campusId: PLANNING_CENTER_CAMPUS_IDS.ranchoCucamonga, parentSlug: "worship-leader" },
+    { name: "West Covina", slug: "worship-leader-west-covina", fieldType: "personPicker", sortOrder: 0.3, campusSpecific: false, campusId: PLANNING_CENTER_CAMPUS_IDS.westCovina, parentSlug: "worship-leader" },
+    { name: "Song 1", slug: "song-1", fieldType: "text", sortOrder: 1, campusSpecific: false },
+    { name: "Song 2", slug: "song-2", fieldType: "text", sortOrder: 2, campusSpecific: false },
+    { name: "Song 3", slug: "song-3", fieldType: "text", sortOrder: 3, campusSpecific: false },
+    { name: "Song 4", slug: "song-4", fieldType: "text", sortOrder: 4, campusSpecific: false },
   ],
 };
