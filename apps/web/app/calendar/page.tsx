@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import db from "@/lib/instant";
 import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
 import { CalendarGrid } from "@/components/calendar/calendar-grid";
 import {
   useCalendarSections,
   useCalendarWeeks,
+  useCalendarSeriesInRange,
   useLatestCalendarWeek,
   useDateRangeFromAnchor,
 } from "@/hooks/use-calendar";
@@ -28,6 +29,7 @@ export default function CalendarPage() {
     rangeStart,
     rangeEnd,
   );
+  const { seriesList } = useCalendarSeriesInRange(rangeStart, rangeEnd);
   const latestWeek = useLatestCalendarWeek();
   const { campuses } = useRockData();
   const { events: rockEvents, isLoading: eventsLoading } = useRockEvents();
@@ -35,6 +37,25 @@ export default function CalendarPage() {
   const eventsByWeek = useEventsByWeek(rockEvents, weekStarts);
 
   const isLoading = sectionsLoading || weeksLoading;
+
+  // Build a map of weekStart → series tint color for column highlighting
+  const seriesTintByWeek = useMemo(() => {
+    const map = new Map<string, string>();
+    // Assign alternating tint styles to consecutive series
+    const tints = [
+      "rgba(255, 201, 5, 0.06)",   // warm yellow
+      "rgba(104, 115, 179, 0.06)", // cool indigo
+    ];
+    // Sort series by startWeek
+    const sorted = [...seriesList].sort((a, b) => a.startWeek.localeCompare(b.startWeek));
+    sorted.forEach((series, idx) => {
+      const tint = tints[idx % tints.length]!;
+      for (const week of series.weeks ?? []) {
+        map.set(week.weekStart, tint);
+      }
+    });
+    return map;
+  }, [seriesList]);
 
   // Map Rock campuses (id: number) to toolbar format (id: string)
   const toolbarCampuses = campuses.map((c) => ({ id: String(c.id), name: c.name }));
@@ -121,6 +142,7 @@ export default function CalendarPage() {
           campusFilter={campus}
           eventsByWeek={eventsByWeek}
           eventsLoading={eventsLoading}
+          seriesTintByWeek={seriesTintByWeek}
         />
       )}
     </main>

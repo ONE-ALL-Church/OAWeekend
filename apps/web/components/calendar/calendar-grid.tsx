@@ -24,6 +24,8 @@ interface CalendarGridProps {
   eventsByWeek?: Map<string, CategorizedWeekEvents>;
   /** Whether Rock events are still loading */
   eventsLoading?: boolean;
+  /** weekStart → CSS background color for series column tinting */
+  seriesTintByWeek?: Map<string, string>;
 }
 
 interface EditingCell {
@@ -42,6 +44,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
   campusFilter,
   eventsByWeek,
   eventsLoading,
+  seriesTintByWeek,
 }, ref) {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     new Set(),
@@ -130,12 +133,14 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
             sun.setDate(sat.getDate() + 1);
             const satDay = sat.getDate();
             const sunDay = sun.getDate();
+            const tint = seriesTintByWeek?.get(week.weekStart);
 
             return (
               <Link
                 key={week.id}
                 href={`/calendar/week/${week.weekStart}`}
-                className="bg-oa-white border-b-2 border-oa-stone-200 px-2 py-2.5 text-center hover:bg-oa-sand-100/10 transition-colors duration-[220ms]"
+                className="border-b-2 border-oa-stone-200 px-2 py-2.5 text-center hover:bg-oa-sand-100/10 transition-colors duration-[220ms]"
+                style={{ backgroundColor: tint ?? "var(--color-oa-white)" }}
               >
                 <div className="text-[13px] font-semibold text-oa-black-900">
                   {satDay} &amp; {sunDay}
@@ -173,6 +178,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
                 onCellClick={(cell) => setEditingCell(cell)}
                 eventsByWeek={isEventsSection ? eventsByWeek : undefined}
                 eventsLoading={isEventsSection ? eventsLoading : undefined}
+                seriesTintByWeek={seriesTintByWeek}
               />
             );
           })}
@@ -207,6 +213,7 @@ function SectionBlock({
   onCellClick,
   eventsByWeek,
   eventsLoading,
+  seriesTintByWeek,
 }: {
   section: CalendarSectionWithRows;
   rows: CalendarRow[];
@@ -218,6 +225,7 @@ function SectionBlock({
   onCellClick: (cell: EditingCell) => void;
   eventsByWeek?: Map<string, CategorizedWeekEvents>;
   eventsLoading?: boolean;
+  seriesTintByWeek?: Map<string, string>;
 }) {
   // Split rows: event rows are auto-populated from Rock, campaign rows stay manual
   const eventRowSlugs = new Set([
@@ -308,6 +316,7 @@ function SectionBlock({
                       isEditable={isEditable}
                       isSubRow={true}
                       onCellClick={onCellClick}
+                      seriesTintByWeek={seriesTintByWeek}
                     />,
                   );
                 });
@@ -327,6 +336,7 @@ function SectionBlock({
                     isEditable={isEditable}
                     isSubRow={false}
                     onCellClick={onCellClick}
+                    seriesTintByWeek={seriesTintByWeek}
                   />,
                 );
               }
@@ -347,6 +357,7 @@ function RowBlock({
   isEditable,
   isSubRow,
   onCellClick,
+  seriesTintByWeek,
 }: {
   row: CalendarRow;
   weeks: CalendarWeekWithEntries[];
@@ -355,6 +366,7 @@ function RowBlock({
   isEditable: boolean;
   isSubRow: boolean;
   onCellClick: (cell: EditingCell) => void;
+  seriesTintByWeek?: Map<string, string>;
 }) {
   const borderClass = isLastRow
     ? "border-b-2 border-b-oa-stone-200"
@@ -379,6 +391,7 @@ function RowBlock({
         const entry = entryMap.get(`${week.id}:${row.id}`);
         const entrySource = (entry as Record<string, unknown> | undefined)?.source as string | undefined;
         const isSyncedFromPC = isRowSyncedFromPC || entrySource === "planning-center" || entrySource === "rock";
+        const tint = seriesTintByWeek?.get(week.weekStart);
 
         return (
           <CalendarCell
@@ -387,6 +400,7 @@ function RowBlock({
             fieldType={row.fieldType as CalendarFieldType}
             isEditable={isEditable}
             isSyncedFromPC={isSyncedFromPC}
+            bgTint={tint}
             isLastRow={isLastRow}
             onClick={() =>
               onCellClick({

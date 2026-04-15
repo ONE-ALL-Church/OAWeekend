@@ -20,6 +20,7 @@ interface CalendarCellProps {
   isSyncedFromPC: boolean;
   onClick: () => void;
   isLastRow?: boolean;
+  bgTint?: string;
 }
 
 export function CalendarCell({
@@ -29,6 +30,7 @@ export function CalendarCell({
   isSyncedFromPC,
   onClick,
   isLastRow,
+  bgTint,
 }: CalendarCellProps) {
   const borderClass = isLastRow
     ? "border-b-2 border-b-oa-stone-200"
@@ -40,11 +42,12 @@ export function CalendarCell({
   return (
     <div
       onClick={effectiveEditable ? onClick : undefined}
-      className={`px-2.5 py-2 text-xs text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/20 flex items-center justify-center min-h-[40px] text-center transition-colors duration-[220ms] ${
+      className={`px-2.5 py-2 text-xs text-oa-black-900 ${borderClass} border-r border-r-oa-stone-200/20 flex items-center justify-center min-h-[40px] text-center transition-colors duration-[220ms] ${
         effectiveEditable
           ? "cursor-pointer hover:bg-oa-sand-100/35"
           : ""
       }`}
+      style={{ backgroundColor: bgTint ?? "var(--color-oa-white)" }}
     >
       {!parsed ? (
         <span className="text-oa-stone-300 text-base">—</span>

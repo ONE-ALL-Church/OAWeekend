@@ -110,7 +110,7 @@ export function SeriesHoverCard({ series, children }: SeriesHoverCardProps) {
 
             {/* Narrative */}
             {series.narrative && (
-              <p className="text-[11px] text-oa-black-700 leading-relaxed line-clamp-3">
+              <p className="text-[11px] text-oa-black-700 leading-relaxed">
                 {series.narrative}
               </p>
             )}

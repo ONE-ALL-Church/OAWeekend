@@ -358,9 +358,9 @@ export async function getSermonForWeek(weekStart: string): Promise<RockSermonFor
     seriesDetails = {
       title: series.title,
       narrative: seriesAttrs.Narrative?.textValue || seriesAttrs.Summary?.textValue || null,
-      objectives: (seriesAttrs.Objectives?.textValue || "")
-        .split(",")
-        .map((s: string) => s.trim())
+      objectives: (seriesAttrs.Objectives?.value || "")
+        .split("|")
+        .map((s: string) => decodeURIComponent(s).trim())
         .filter(Boolean),
       imageUrl: imageGuid ? `${ROCK_BASE_URL}/GetImage.ashx?guid=${imageGuid}` : null,
       startDate: series.startDateTime?.slice(0, 10) ?? null,
