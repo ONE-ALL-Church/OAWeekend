@@ -106,7 +106,11 @@
 {%- endcomment -%}
 
 {% capture codeTemplate %}[{%- raw -%}
-{%- assign months = 'Global' | PageParameter:'months' | Default:'3' | AsInteger -%}
+{%- comment -%}
+  Use QueryString.months — PageParameter only works in page-level blocks,
+  not in Lava Application endpoints.
+{%- endcomment -%}
+{%- assign months = QueryString.months | Default:'3' | AsInteger -%}
 {%- assign dateRange = months | Append:'m' -%}
 
 {%- sql return:'calendarItems' -%}
