@@ -1,0 +1,176 @@
+{%- comment -%} Webhook: /Webhooks/Lava.ashx/oa-weekend/featured-events {%- endcomment -%}
+{%- assign expectedKey = 'REPLACE_WITH_ROCK_WEBHOOK_SECRET' -%}
+{%- assign providedKey = Headers['x-webhook-secret'] -%}
+{%- if providedKey != expectedKey -%}
+{%- httpresponse statuscode:'401' -%}[[ header key:'Content-Type' ]]application/json[[ endheader ]]{%- endhttpresponse -%}
+{"error":"unauthorized"}
+{%- else -%}
+
+{%- comment -%}
+  Date range: default 3 months back + 3 months forward.
+  Override via ?months=N (symmetric window) or ?past=N&future=N.
+{%- endcomment -%}
+{%- assign months = QueryString.months | Default:'3' | AsInteger -%}
+{%- assign pastMonths = QueryString.past | Default:months | AsInteger -%}
+{%- assign futureMonths = QueryString.future | Default:months | AsInteger -%}
+{%- assign totalMonths = pastMonths | Plus:futureMonths -%}
+{%- assign rangeStr = totalMonths | Append:'m' -%}
+{%- capture startDate -%}{{ 'Now' | DateAdd:0 | Minus:0 }}{%- endcapture -%}
+{%- assign startDate = 'Now' | Date:'yyyy-MM-ddTHH:mm:ss' -%}
+{%- assign startDate = 'Now' | DateAdd:pastMonths,'M' -%}
+{%- comment -%} Subtract pastMonths months from today. DateAdd with negative doesn't work directly in Lava — pre-compute sign. {%- endcomment -%}
+{%- assign pastNeg = 0 | Minus:pastMonths -%}
+{%- assign startDate = 'Now' | DateAdd:pastNeg,'M' | Date:'yyyy-MM-dd' -%}
+
+{%- comment -%} --- Step 1: Get all calendar event instances in range --- {%- endcomment -%}
+{%- calendarevents calendarid:'1' startdate:'{{ startDate }}' daterange:'{{ rangeStr }}' maxoccurrences:'1000' -%}
+  {%- assign allInstances = EventScheduledInstances -%}
+{%- endcalendarevents -%}
+
+{%- comment -%} --- Step 2: Collect unique EventItemIds --- {%- endcomment -%}
+{%- assign eventIdList = '' -%}
+{%- for inst in allInstances -%}
+  {%- assign eid = inst.EventItemOccurrence.EventItemId -%}
+  {%- unless eventIdList contains eid -%}
+    {%- capture eventIdList -%}{{ eventIdList }},{{ eid }}{%- endcapture -%}
+  {%- endunless -%}
+{%- endfor -%}
+{%- assign eventIdList = eventIdList | Remove:'^,' | Replace:' ','' -%}
+
+{%- comment -%}
+  Step 3: Fetch all featured event attributes + metadata in ONE SQL query.
+  Joins Attribute/AttributeValue on EventCalendarItem to get featured flag,
+  campuses, ministry, CTAs. Joins Campus directly (not DefinedValue) for
+  the campus name resolution.
+{%- endcomment -%}
+{%- if eventIdList == '' -%}
+[]
+{%- else -%}
+{%- sql return:'eventData' ids:'{{ eventIdList }}' -%}
+  WITH AttrVals AS (
+    SELECT eci.EventItemId,
+           MAX(CASE WHEN a.[Key] = 'FeaturedEvent' THEN av.Value END) AS FeaturedRaw,
+           MAX(CASE WHEN a.[Key] = 'ForCampuses' THEN av.Value END) AS CampusGuids,
+           MAX(CASE WHEN a.[Key] = 'ForMinistry' THEN av.Value END) AS MinistryRaw,
+           MAX(CASE WHEN a.[Key] = 'CallsToAction' THEN av.Value END) AS CtaRaw
+    FROM EventCalendarItem eci
+    LEFT JOIN AttributeValue av ON av.EntityId = eci.Id
+    LEFT JOIN Attribute a ON a.Id = av.AttributeId
+      AND a.EntityTypeId = (SELECT Id FROM EntityType WHERE Name = 'Rock.Model.EventCalendarItem')
+      AND a.[Key] IN ('FeaturedEvent', 'ForCampuses', 'ForMinistry', 'CallsToAction')
+    WHERE eci.EventCalendarId = 1
+      AND eci.EventItemId IN (SELECT CAST(value AS int) FROM STRING_SPLIT(@ids, ','))
+    GROUP BY eci.EventItemId
+  )
+  SELECT ei.Id AS EventItemId,
+         ei.Name,
+         ei.Summary,
+         ei.Description,
+         ei.PhotoId,
+         ei.DetailsUrl,
+         a.FeaturedRaw,
+         a.CampusGuids,
+         a.MinistryRaw,
+         a.CtaRaw,
+         -- Resolve campus GUIDs to comma-separated names via Campus table
+         STUFF((
+           SELECT ', ' + c.Name
+           FROM STRING_SPLIT(a.CampusGuids, ',') s
+           INNER JOIN Campus c ON TRY_CAST(LTRIM(RTRIM(s.value)) AS UNIQUEIDENTIFIER) = c.Guid
+         FOR XML PATH('')), 1, 2, '') AS CampusNames,
+         -- Resolve ministry defined-value GUIDs to names
+         STUFF((
+           SELECT ', ' + dv.Value
+           FROM STRING_SPLIT(a.MinistryRaw, ',') s
+           INNER JOIN DefinedValue dv ON TRY_CAST(LTRIM(RTRIM(s.value)) AS UNIQUEIDENTIFIER) = dv.Guid
+         FOR XML PATH('')), 1, 2, '') AS MinistryNames
+  FROM EventItem ei
+  INNER JOIN AttrVals a ON a.EventItemId = ei.Id
+  WHERE ei.IsActive = 1
+{%- endsql -%}
+
+{%- comment -%}
+  Step 4: Build a dict of eventItemId -> metadata for featured events only.
+{%- endcomment -%}
+{%- assign featuredIds = '' -%}
+
+[{%- assign eventCount = 0 -%}
+{%- for e in eventData -%}
+  {%- assign featured = false -%}
+  {%- if e.FeaturedRaw == 'value1' or e.FeaturedRaw == 'True' or e.FeaturedRaw == 'true' -%}
+    {%- assign featured = true -%}
+  {%- endif -%}
+  {%- if featured == false -%}{%- continue -%}{%- endif -%}
+
+  {%- comment -%} Collect occurrences for this event from allInstances {%- endcomment -%}
+  {%- assign thisInstances = '' | Split:'' -%}
+  {%- assign instancesJson = '' -%}
+  {%- assign instIdx = 0 -%}
+  {%- for inst in allInstances -%}
+    {%- if inst.EventItemOccurrence.EventItemId == e.EventItemId -%}
+      {%- if instIdx > 0 -%}{%- assign instancesJson = instancesJson | Append:',' -%}{%- endif -%}
+      {%- capture instJson -%}
+        {
+          "date": {{ inst.DateTime | Date:'yyyy-MM-ddTHH:mm:ss' | ToJSON }},
+          "endDate": {{ inst.EndDate | Date:'yyyy-MM-ddTHH:mm:ss' | Default:'' | ToJSON }},
+          "campus": {{ inst.Campus | Default:'' | ToJSON }},
+          "location": {{ inst.Location | Default:'' | ToJSON }},
+          "locationDescription": {{ inst.LocationDescription | Default:'' | ToJSON }},
+          "note": {{ inst.OccurrenceNote | Default:'' | ToJSON }}
+        }
+      {%- endcapture -%}
+      {%- assign instancesJson = instancesJson | Append:instJson -%}
+      {%- assign instIdx = instIdx | Plus:1 -%}
+    {%- endif -%}
+  {%- endfor -%}
+
+  {%- assign photoUrl = '' -%}
+  {%- if e.PhotoId and e.PhotoId > 0 -%}
+    {%- capture photoUrl -%}/GetImage.ashx?id={{ e.PhotoId }}{%- endcapture -%}
+  {%- endif -%}
+
+  {%- assign campusNameList = e.CampusNames | Split:', ' -%}
+  {%- assign ctaPairs = e.CtaRaw | Default:'' | Split:'|' -%}
+
+  {%- if eventCount > 0 -%},{%- endif -%}
+  {%- assign eventCount = eventCount | Plus:1 -%}
+  {
+    "eventItemId": {{ e.EventItemId }},
+    "name": {{ e.Name | ToJSON }},
+    "summary": {{ e.Summary | Default:'' | ToJSON }},
+    "photoUrl": {{ photoUrl | ToJSON }},
+    "detailsUrl": {{ e.DetailsUrl | Default:'' | ToJSON }},
+    "campuses": {{ e.CampusNames | Default:'' | ToJSON }},
+    "campusList": [
+      {%- assign ci = 0 -%}
+      {%- for c in campusNameList -%}
+        {%- assign trimmed = c | Trim -%}
+        {%- if trimmed != '' -%}
+          {%- if ci > 0 -%},{%- endif -%}
+          {{ trimmed | ToJSON }}
+          {%- assign ci = ci | Plus:1 -%}
+        {%- endif -%}
+      {%- endfor -%}
+    ],
+    "ministry": {{ e.MinistryNames | Default:'' | ToJSON }},
+    "callsToAction": [
+      {%- assign ctaIndex = 0 -%}
+      {%- for pair in ctaPairs -%}
+        {%- assign parts = pair | Split:'^' -%}
+        {%- if parts.size == 2 -%}
+          {%- assign ctaLabel = parts[0] | Trim -%}
+          {%- assign ctaUrl = parts[1] | Trim -%}
+          {%- if ctaLabel != '' and ctaUrl != '' -%}
+            {%- if ctaIndex > 0 -%},{%- endif -%}
+            { "label": {{ ctaLabel | ToJSON }}, "url": {{ ctaUrl | ToJSON }} }
+            {%- assign ctaIndex = ctaIndex | Plus:1 -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+    ],
+    "occurrences": [{{ instancesJson }}]
+  }
+{%- endfor -%}]
+
+{%- endif -%}
+{%- endif -%}
