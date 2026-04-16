@@ -389,14 +389,94 @@ export async function getSermonForWeek(weekStart: string): Promise<RockSermonFor
 }
 
 /**
- * Fetch all Featured Events from Rock Calendar 1 (Public) using V2 API.
+ * Fetch featured events via the Rock Lava Webhook. Single HTTP call, the
+ * webhook does all the joining, attribute resolution, and schedule expansion
+ * server-side via `eventscheduledinstance`.
+ */
+async function getFeaturedEventsViaWebhook(
+  months = 3,
+): Promise<RockFeaturedEvent[] | null> {
+  const base = process.env.ROCK_BASE_URL;
+  const secret = process.env.ROCK_WEBHOOK_SECRET;
+  if (!base || !secret) return null;
+
+  const url = `${base.replace(/\/+$/, "")}/Webhooks/Lava.ashx/oa-weekend/featured-events?months=${months}`;
+  const res = await fetch(url, {
+    headers: { "X-Webhook-Secret": secret, Accept: "application/json" },
+    next: { revalidate: 300 },
+  });
+
+  if (!res.ok) return null;
+
+  const raw = (await res.json()) as Array<{
+    eventItemId: number;
+    name: string;
+    summary: string | null;
+    photoUrl: string | null;
+    detailsUrl: string | null;
+    campuses: string | null;
+    campusList: string[];
+    ministry: string | null;
+    callsToAction: RockCallToAction[];
+    occurrences: Array<{
+      date: string | null;
+      endDate: string | null;
+      campus: string | null;
+      location: string | null;
+      locationDescription: string | null;
+      note: string | null;
+    }>;
+  }>;
+
+  if (!Array.isArray(raw)) return null;
+
+  return raw.map((ev) => ({
+    eventItemId: ev.eventItemId,
+    name: ev.name,
+    summary: ev.summary,
+    photoUrl: ev.photoUrl ? (ev.photoUrl.startsWith("/") ? `/api/rock/image?path=${encodeURIComponent(ev.photoUrl)}` : ev.photoUrl) : null,
+    detailsUrl: ev.detailsUrl,
+    campuses: ev.campuses,
+    campusList: ev.campusList ?? [],
+    ministry: ev.ministry,
+    callsToAction: ev.callsToAction ?? [],
+    occurrences: (ev.occurrences ?? []).map((o, idx) => ({
+      occurrenceId: ev.eventItemId * 1000 + idx,
+      campusId: null,
+      nextStartDateTime: o.date,
+      location: o.location,
+    })),
+  }));
+}
+
+/**
+ * Fetch all Featured Events from Rock Calendar 1 (Public).
+ *
+ * Prefers the Rock Lava Webhook (single API call, server-side expansion)
+ * when ROCK_WEBHOOK_SECRET is configured. Falls back to the legacy 6-call
+ * fan-out if the webhook is unavailable or errors.
+ */
+export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
+  // Try webhook first
+  try {
+    const viaWebhook = await getFeaturedEventsViaWebhook();
+    if (viaWebhook && viaWebhook.length > 0) return viaWebhook;
+  } catch (err) {
+    console.warn("Rock webhook failed, falling back to V2 API:", err);
+  }
+
+  return getFeaturedEventsViaV2Api();
+}
+
+/**
+ * Legacy fallback: fetch featured events via the Rock V2 REST API.
  *
  * 1. V2 bulk fetch EventCalendarItems for calendar 1
  * 2. Fetch attributes for each to find Featured flag + ForCampuses
  * 3. V2 bulk fetch active EventItems + EventItemOccurrences with future dates
  * 4. Join client-side by EventItemId
  */
-export async function getFeaturedEvents(): Promise<RockFeaturedEvent[]> {
+async function getFeaturedEventsViaV2Api(): Promise<RockFeaturedEvent[]> {
   // Step 1: Get all calendar items for calendar 1 via V2
   const calendarItems = await rockSearch(
     "eventcalendaritems",
