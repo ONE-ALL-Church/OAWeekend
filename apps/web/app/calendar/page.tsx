@@ -124,7 +124,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <main className="flex flex-col flex-1 bg-oa-white">
+    <main className="flex flex-col flex-1 min-w-0 overflow-x-hidden bg-oa-white">
       <CalendarToolbar
         anchorYear={anchorYear}
         anchorMonth={anchorMonth}
