@@ -5,27 +5,33 @@
   Run this in the Rock Lava Tester with Enabled Commands:
       RockEntityModify,Sql,RockEntity
 
-  Creates / updates:
-    1. Global Attribute: OAWeekendWebhookSecret (encrypted text)
-       - Holds the shared secret the webhook checks for
-       - If missing, script generates a GUID and saves it
-    2. Lava Webhook DefinedValue (DefinedTypeId=65)
+  What this creates:
+    1. Lava Webhook DefinedValue (DefinedTypeId=65)
        - Value: oa-weekend/featured-events (the URL path)
        - Hit at: /Webhooks/Lava.ashx/oa-weekend/featured-events
-    3. Attribute values on the webhook:
+    2. The webhook's four attribute values via [[ attribute ]] tags:
        - Method: GET
-       - Template: (the featured events Lava code)
+       - Template: (the featured events Lava code, with secret embedded)
        - EnabledLavaCommands: Sql,RockEntity,EventScheduledInstance,HttpResponse
        - ResponseContentType: application/json
 
   Security model:
-    The template checks for an "X-Webhook-Secret" HTTP header.
-    If missing or wrong, returns 401 unauthorized.
-    Secret is stored server-side as a Global Attribute and must be
-    duplicated in Vercel as ROCK_WEBHOOK_SECRET env var.
+    The template contains a hardcoded shared secret. Requests must send
+    the same secret in an X-Webhook-Secret header, or the template
+    returns 401. Vercel stores the secret as ROCK_WEBHOOK_SECRET env var.
 
-  Idempotent — safe to re-run. The secret is generated once; re-runs
-  keep the existing value unless you manually clear it.
+    - First run: generates a new secret and embeds it in the template.
+      Output shows the secret so you can copy it to Vercel.
+    - Subsequent runs: extracts the existing secret from the stored
+      template and reuses it, so re-deploys don't break Vercel.
+
+  Why hardcoded vs. a Global Attribute:
+    Rock's modify command surface for AttributeValue with null EntityId
+    (global attributes) isn't reliably registered. Using [[ attribute ]]
+    child tags on a parent modifydefinedvalue is cleaner and uses only
+    the well-supported entity modify pattern.
+
+  Idempotent — safe to re-run.
   ============================================================================
 {%- endcomment -%}
 
@@ -41,191 +47,55 @@
 <div class="deploy-log">
 
 {%- comment -%} ========================================================= {%- endcomment -%}
-{%- comment -%} Step 1: Ensure the Global Attribute for the secret exists  {%- endcomment -%}
-{%- comment -%} ========================================================= {%- endcomment -%}
-
-{% sql return:'attrCheck' %}
-  SELECT Id FROM Attribute
-  WHERE [Key] = 'OAWeekendWebhookSecret'
-    AND EntityTypeId IS NULL
-    AND (EntityTypeQualifierColumn = '' OR EntityTypeQualifierColumn IS NULL)
-{% endsql %}
-
-{% assign secretAttrId = 0 %}
-{% assign secretAttrOk = false %}
-
-{% if attrCheck == empty %}
-  {% modifyattribute id:'0' securityenabled:'false' %}
-    [[ property name:'Key' ]]OAWeekendWebhookSecret[[ endproperty ]]
-    [[ property name:'Name' ]]OA Weekend Webhook Secret[[ endproperty ]]
-    [[ property name:'Description' ]]Shared secret for the OA Weekend featured-events Lava Webhook. Vercel sends this as the X-Webhook-Secret header on every call; the webhook rejects requests that don't match.[[ endproperty ]]
-    [[ property name:'FieldTypeId' ]]81[[ endproperty ]]
-    [[ property name:'Order' ]]0[[ endproperty ]]
-    [[ property name:'IsRequired' ]]false[[ endproperty ]]
-    [[ property name:'IsSystem' ]]false[[ endproperty ]]
-    [[ property name:'AllowSearch' ]]false[[ endproperty ]]
-    [[ property name:'EntityTypeQualifierColumn' ]][[ endproperty ]]
-    [[ property name:'EntityTypeQualifierValue' ]][[ endproperty ]]
-  {% endmodifyattribute %}
-
-  {% if ModifyResult.Success %}
-    {% assign secretAttrId = ModifyResult.Object.Id %}
-    {% assign secretAttrOk = true %}
-    <p class="ok">✓ Created Global Attribute Id={{ secretAttrId }} (OAWeekendWebhookSecret)</p>
-  {% else %}
-    <p class="fail">✗ Failed to create Global Attribute: {{ ModifyResult.ErrorMessage }}</p>
-    {% for err in ModifyResult.ValidationErrors %}
-      <div class="errors">{{ err.ErrorMessage }}</div>
-    {% endfor %}
-  {% endif %}
-{% else %}
-  {% assign secretAttrId = attrCheck[0].Id %}
-  {% assign secretAttrOk = true %}
-  <p class="info">• Global Attribute already exists, Id={{ secretAttrId }}</p>
-{% endif %}
-
-{% if secretAttrOk %}
-
-{%- comment -%} ========================================================= {%- endcomment -%}
-{%- comment -%} Step 2: Ensure the secret has a value                      {%- endcomment -%}
-{%- comment -%} ========================================================= {%- endcomment -%}
-
-{% sql return:'valCheck' appid:'{{ secretAttrId }}' %}
-  SELECT Id, Value FROM AttributeValue
-  WHERE AttributeId = @appid AND (EntityId IS NULL OR EntityId = 0)
-{% endsql %}
-
-{% assign secretValueId = 0 %}
-{% assign secretValue = '' %}
-{% assign secretCreated = false %}
-
-{% if valCheck == empty %}
-  {%- comment -%} Generate a new GUID as the secret. Remove dashes for a cleaner key. {%- endcomment -%}
-  {% capture newSecret %}{{ '' | NewGuid | Remove:'-' }}{{ '' | NewGuid | Remove:'-' }}{% endcapture %}
-  {% assign newSecret = newSecret | Trim %}
-
-  {% modifyattributevalue id:'0' securityenabled:'false' %}
-    [[ property name:'AttributeId' ]]{{ secretAttrId }}[[ endproperty ]]
-    [[ property name:'EntityId' ]]0[[ endproperty ]]
-    [[ property name:'Value' ]]{{ newSecret }}[[ endproperty ]]
-  {% endmodifyattributevalue %}
-
-  {% if ModifyResult.Success %}
-    {% assign secretValueId = ModifyResult.Object.Id %}
-    {% assign secretValue = newSecret %}
-    {% assign secretCreated = true %}
-    <p class="ok">✓ Generated new secret and saved it</p>
-  {% else %}
-    <p class="fail">✗ Failed to save secret value: {{ ModifyResult.ErrorMessage }}</p>
-  {% endif %}
-{% else %}
-  {% assign secretValueId = valCheck[0].Id %}
-  {% assign secretValue = valCheck[0].Value %}
-  <p class="info">• Secret already set (reusing existing value)</p>
-{% endif %}
-
-{%- comment -%} ========================================================= {%- endcomment -%}
-{%- comment -%} Step 3: Ensure the Lava Webhook DefinedValue exists        {%- endcomment -%}
+{%- comment -%} Step 1: Determine the secret                                {%- endcomment -%}
+{%- comment -%}   - If the webhook already exists, extract the secret      {%- endcomment -%}
+{%- comment -%}     from its current template so re-deploys are stable.   {%- endcomment -%}
+{%- comment -%}   - Otherwise, generate a new one.                          {%- endcomment -%}
 {%- comment -%} ========================================================= {%- endcomment -%}
 
 {% sql return:'webhookCheck' %}
-  SELECT Id FROM DefinedValue
-  WHERE DefinedTypeId = 65 AND Value = 'oa-weekend/featured-events'
+  SELECT dv.Id, av.Value AS CurrentTemplate
+  FROM DefinedValue dv
+  LEFT JOIN AttributeValue av ON av.EntityId = dv.Id AND av.AttributeId = 3671
+  WHERE dv.DefinedTypeId = 65 AND dv.Value = 'oa-weekend/featured-events'
 {% endsql %}
 
-{% assign webhookId = 0 %}
-{% assign webhookOk = false %}
+{% assign secretValue = '' %}
+{% assign secretCreated = false %}
+{% assign existingWebhookId = 0 %}
 
-{% if webhookCheck == empty %}
-  {% modifydefinedvalue id:'0' securityenabled:'false' %}
-    [[ property name:'DefinedTypeId' ]]65[[ endproperty ]]
-    [[ property name:'Value' ]]oa-weekend/featured-events[[ endproperty ]]
-    [[ property name:'Description' ]]OA Weekend strategic calendar featured events. Returns all featured events from Calendar 1 with expanded schedule dates. Requires X-Webhook-Secret header matching the OAWeekendWebhookSecret global attribute.[[ endproperty ]]
-    [[ property name:'IsActive' ]]true[[ endproperty ]]
-    [[ property name:'IsSystem' ]]false[[ endproperty ]]
-    [[ property name:'Order' ]]0[[ endproperty ]]
-  {% endmodifydefinedvalue %}
-
-  {% if ModifyResult.Success %}
-    {% assign webhookId = ModifyResult.Object.Id %}
-    {% assign webhookOk = true %}
-    <p class="ok">✓ Created Lava Webhook Id={{ webhookId }} (oa-weekend/featured-events)</p>
-  {% else %}
-    <p class="fail">✗ Failed to create webhook: {{ ModifyResult.ErrorMessage }}</p>
-    {% for err in ModifyResult.ValidationErrors %}
-      <div class="errors">{{ err.ErrorMessage }}</div>
-    {% endfor %}
+{% if webhookCheck != empty %}
+  {% assign existingWebhookId = webhookCheck[0].Id %}
+  {%- comment -%} Try to extract the existing secret from the stored template {%- endcomment -%}
+  {% capture tmpl %}{{ webhookCheck[0].CurrentTemplate | Default:'' }}{% endcapture %}
+  {%- comment -%} Secret is embedded as: {%- assign expectedKey = 'XXXXX' -%} {%- endcomment -%}
+  {% assign parts = tmpl | Split:"assign expectedKey = '" %}
+  {% if parts.size > 1 %}
+    {% assign afterKey = parts[1] %}
+    {% assign keyParts = afterKey | Split:"'" %}
+    {% if keyParts.size > 0 %}
+      {% assign secretValue = keyParts[0] %}
+    {% endif %}
   {% endif %}
-{% else %}
-  {% assign webhookId = webhookCheck[0].Id %}
-  {% assign webhookOk = true %}
-  <p class="info">• Lava Webhook already exists, Id={{ webhookId }}</p>
 {% endif %}
 
-{% if webhookOk %}
+{% if secretValue == '' %}
+  {% capture newSecret %}{{ '' | NewGuid | Remove:'-' }}{{ '' | NewGuid | Remove:'-' }}{% endcapture %}
+  {% assign secretValue = newSecret | Trim %}
+  {% assign secretCreated = true %}
+{% endif %}
 
 {%- comment -%} ========================================================= {%- endcomment -%}
-{%- comment -%} Step 4: Set the four attribute values on the webhook       {%- endcomment -%}
-{%- comment -%}   3670 Method, 3671 Template, 3672 EnabledLavaCommands,    {%- endcomment -%}
-{%- comment -%}   3673 ResponseContentType                                 {%- endcomment -%}
+{%- comment -%} Step 2: Capture the webhook template with secret embedded   {%- endcomment -%}
 {%- comment -%} ========================================================= {%- endcomment -%}
 
-{% comment %} --- HTTP Method (GET) --- {% endcomment %}
-{% sql return:'mCheck' webhookid:'{{ webhookId }}' %}
-  SELECT Id FROM AttributeValue WHERE AttributeId = 3670 AND EntityId = @webhookid
-{% endsql %}
-{% if mCheck == empty %}
-  {% modifyattributevalue id:'0' securityenabled:'false' %}
-    [[ property name:'AttributeId' ]]3670[[ endproperty ]]
-    [[ property name:'EntityId' ]]{{ webhookId }}[[ endproperty ]]
-    [[ property name:'Value' ]]GET[[ endproperty ]]
-  {% endmodifyattributevalue %}
-{% else %}
-  {% modifyattributevalue id:'{{ mCheck[0].Id }}' securityenabled:'false' %}
-    [[ property name:'Value' ]]GET[[ endproperty ]]
-  {% endmodifyattributevalue %}
-{% endif %}
-
-{% comment %} --- Enabled Lava Commands --- {% endcomment %}
-{% sql return:'cCheck' webhookid:'{{ webhookId }}' %}
-  SELECT Id FROM AttributeValue WHERE AttributeId = 3672 AND EntityId = @webhookid
-{% endsql %}
-{% if cCheck == empty %}
-  {% modifyattributevalue id:'0' securityenabled:'false' %}
-    [[ property name:'AttributeId' ]]3672[[ endproperty ]]
-    [[ property name:'EntityId' ]]{{ webhookId }}[[ endproperty ]]
-    [[ property name:'Value' ]]Sql,RockEntity,EventScheduledInstance,HttpResponse[[ endproperty ]]
-  {% endmodifyattributevalue %}
-{% else %}
-  {% modifyattributevalue id:'{{ cCheck[0].Id }}' securityenabled:'false' %}
-    [[ property name:'Value' ]]Sql,RockEntity,EventScheduledInstance,HttpResponse[[ endproperty ]]
-  {% endmodifyattributevalue %}
-{% endif %}
-
-{% comment %} --- Response Content Type --- {% endcomment %}
-{% sql return:'rCheck' webhookid:'{{ webhookId }}' %}
-  SELECT Id FROM AttributeValue WHERE AttributeId = 3673 AND EntityId = @webhookid
-{% endsql %}
-{% if rCheck == empty %}
-  {% modifyattributevalue id:'0' securityenabled:'false' %}
-    [[ property name:'AttributeId' ]]3673[[ endproperty ]]
-    [[ property name:'EntityId' ]]{{ webhookId }}[[ endproperty ]]
-    [[ property name:'Value' ]]application/json[[ endproperty ]]
-  {% endmodifyattributevalue %}
-{% else %}
-  {% modifyattributevalue id:'{{ rCheck[0].Id }}' securityenabled:'false' %}
-    [[ property name:'Value' ]]application/json[[ endproperty ]]
-  {% endmodifyattributevalue %}
-{% endif %}
-
-{% comment %} --- Template (the big one — capture separately with raw so inner Lava doesn't execute) --- {% endcomment %}
 {% capture webhookTemplate %}{%- raw -%}
 {%- comment -%} Webhook: /Webhooks/Lava.ashx/oa-weekend/featured-events {%- endcomment -%}
-
-{%- comment -%} --- Shared-secret check --- {%- endcomment -%}
+{%- endraw -%}
+{%- assign expectedKey = '{{ secretValue }}' -%}
+{%- raw -%}
 {%- assign providedKey = Headers['X-Webhook-Secret'] -%}
-{%- assign expectedKey = 'Global' | Attribute:'OAWeekendWebhookSecret' -%}
-{%- if expectedKey == '' or providedKey != expectedKey -%}
+{%- if providedKey != expectedKey -%}
 {%- httpresponse statuscode:'401' -%}[[ header key:'Content-Type' ]]application/json[[ endheader ]]{%- endhttpresponse -%}
 {"error":"unauthorized"}
 {%- else -%}
@@ -348,28 +218,55 @@
 {%- endif -%}
 {%- endraw -%}{% endcapture %}
 
-{% sql return:'tCheck' webhookid:'{{ webhookId }}' %}
-  SELECT Id FROM AttributeValue WHERE AttributeId = 3671 AND EntityId = @webhookid
-{% endsql %}
-{% if tCheck == empty %}
-  {% modifyattributevalue id:'0' securityenabled:'false' %}
-    [[ property name:'AttributeId' ]]3671[[ endproperty ]]
-    [[ property name:'EntityId' ]]{{ webhookId }}[[ endproperty ]]
-    [[ property name:'Value' injectionpreventionenabled:'false' ]]{{ webhookTemplate }}[[ endproperty ]]
-  {% endmodifyattributevalue %}
+{%- comment -%} ========================================================= {%- endcomment -%}
+{%- comment -%} Step 3: Create or update the Lava Webhook DefinedValue     {%- endcomment -%}
+{%- comment -%}   Use [[ attribute ]] child tags for Method, Template,    {%- endcomment -%}
+{%- comment -%}   EnabledLavaCommands, and ResponseContentType.           {%- endcomment -%}
+{%- comment -%}   Rock handles AttributeValue rows through the parent     {%- endcomment -%}
+{%- comment -%}   modify command — no separate modifyattributevalue       {%- endcomment -%}
+{%- comment -%}   needed (that command isn't reliably registered).        {%- endcomment -%}
+{%- comment -%} ========================================================= {%- endcomment -%}
+
+{% if existingWebhookId > 0 %}
+  {% modifydefinedvalue id:'{{ existingWebhookId }}' securityenabled:'false' %}
+    [[ property name:'Description' ]]OA Weekend strategic calendar featured events. Returns all featured events from Calendar 1 with expanded schedule dates. Requires X-Webhook-Secret header.[[ endproperty ]]
+    [[ property name:'IsActive' ]]true[[ endproperty ]]
+    [[ attribute key:'Method' ]]GET[[ endattribute ]]
+    [[ attribute key:'EnabledLavaCommands' ]]Sql,RockEntity,EventScheduledInstance,HttpResponse[[ endattribute ]]
+    [[ attribute key:'ResponseContentType' ]]application/json[[ endattribute ]]
+    [[ attribute key:'Template' injectionpreventionenabled:'false' ]]{{ webhookTemplate }}[[ endattribute ]]
+  {% endmodifydefinedvalue %}
 {% else %}
-  {% modifyattributevalue id:'{{ tCheck[0].Id }}' securityenabled:'false' %}
-    [[ property name:'Value' injectionpreventionenabled:'false' ]]{{ webhookTemplate }}[[ endproperty ]]
-  {% endmodifyattributevalue %}
+  {% modifydefinedvalue id:'0' securityenabled:'false' %}
+    [[ property name:'DefinedTypeId' ]]65[[ endproperty ]]
+    [[ property name:'Value' ]]oa-weekend/featured-events[[ endproperty ]]
+    [[ property name:'Description' ]]OA Weekend strategic calendar featured events. Returns all featured events from Calendar 1 with expanded schedule dates. Requires X-Webhook-Secret header.[[ endproperty ]]
+    [[ property name:'IsActive' ]]true[[ endproperty ]]
+    [[ property name:'IsSystem' ]]false[[ endproperty ]]
+    [[ property name:'Order' ]]0[[ endproperty ]]
+    [[ attribute key:'Method' ]]GET[[ endattribute ]]
+    [[ attribute key:'EnabledLavaCommands' ]]Sql,RockEntity,EventScheduledInstance,HttpResponse[[ endattribute ]]
+    [[ attribute key:'ResponseContentType' ]]application/json[[ endattribute ]]
+    [[ attribute key:'Template' injectionpreventionenabled:'false' ]]{{ webhookTemplate }}[[ endattribute ]]
+  {% endmodifydefinedvalue %}
 {% endif %}
 
-<p class="ok">✓ Webhook attributes (Method, Template, EnabledLavaCommands, ResponseContentType) saved</p>
-
-{% endif %}
+{% if ModifyResult.Success %}
+  {% assign webhookId = ModifyResult.Object.Id %}
+  {% if existingWebhookId > 0 %}
+    <p class="ok">✓ Updated Lava Webhook Id={{ webhookId }}</p>
+  {% else %}
+    <p class="ok">✓ Created Lava Webhook Id={{ webhookId }} (oa-weekend/featured-events)</p>
+  {% endif %}
+{% else %}
+  <p class="fail">✗ Failed to save webhook: {{ ModifyResult.ErrorMessage }}</p>
+  {% for err in ModifyResult.ValidationErrors %}
+    <div class="errors">{{ err.ErrorMessage }}</div>
+  {% endfor %}
 {% endif %}
 
 {%- comment -%} ========================================================= {%- endcomment -%}
-{%- comment -%} Step 5: Verify + output the secret for Vercel              {%- endcomment -%}
+{%- comment -%} Step 4: Output secret + test command                       {%- endcomment -%}
 {%- comment -%} ========================================================= {%- endcomment -%}
 
 <h3>Final state:</h3>
@@ -381,23 +278,21 @@
   <tr><td style="padding:4px 12px;border:1px solid #e5e7eb;">URL</td><td style="padding:4px 12px;border:1px solid #e5e7eb;"><code>https://www.oneandall.church/Webhooks/Lava.ashx/oa-weekend/featured-events?months=3</code></td></tr>
   <tr><td style="padding:4px 12px;border:1px solid #e5e7eb;">Method</td><td style="padding:4px 12px;border:1px solid #e5e7eb;">GET</td></tr>
   <tr><td style="padding:4px 12px;border:1px solid #e5e7eb;">Required header</td><td style="padding:4px 12px;border:1px solid #e5e7eb;"><code>X-Webhook-Secret: &lt;secret&gt;</code></td></tr>
-  <tr><td style="padding:4px 12px;border:1px solid #e5e7eb;">DefinedValue Id</td><td style="padding:4px 12px;border:1px solid #e5e7eb;">{{ webhookId }}</td></tr>
-  <tr><td style="padding:4px 12px;border:1px solid #e5e7eb;">Global Attribute Id</td><td style="padding:4px 12px;border:1px solid #e5e7eb;">{{ secretAttrId }}</td></tr>
+  <tr><td style="padding:4px 12px;border:1px solid #e5e7eb;">DefinedValue Id</td><td style="padding:4px 12px;border:1px solid #e5e7eb;">{{ ModifyResult.Object.Id }}</td></tr>
 </table>
 
 {% if secretCreated %}
   <h3 class="ok">✓ New secret generated — copy this into Vercel as <code>ROCK_WEBHOOK_SECRET</code>:</h3>
   <div class="secret">{{ secretValue }}</div>
-  <p class="info">This is the only time you'll see the full value in plaintext here. It's stored encrypted in Rock. If you lose it, clear the AttributeValue row and re-run this script to generate a new one.</p>
+  <p class="info">The secret is embedded in the webhook template. On the next re-run, the script will extract it back out so Vercel stays in sync.</p>
 {% else %}
-  <h3 class="info">• Secret reused from existing value.</h3>
-  <p>If you need to see the existing secret, run this SQL:</p>
-  <pre>SELECT Value FROM AttributeValue WHERE AttributeId = {{ secretAttrId }}</pre>
-  <p class="info">(Rock stores it encrypted on write but decrypts on read via the filter <code>{{ 'Global' | Attribute:'OAWeekendWebhookSecret' }}</code>.)</p>
+  <h3 class="info">• Secret reused from existing template (no change for Vercel).</h3>
+  <p class="info">Current secret (for reference):</p>
+  <div class="secret">{{ secretValue }}</div>
 {% endif %}
 
 <p>Test from CLI:</p>
-<pre>curl -H "X-Webhook-Secret: &lt;secret&gt;" \
+<pre>curl -H "X-Webhook-Secret: {{ secretValue }}" \
      "https://www.oneandall.church/Webhooks/Lava.ashx/oa-weekend/featured-events?months=3"</pre>
 
 </div>
