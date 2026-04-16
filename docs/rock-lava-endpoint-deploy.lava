@@ -73,16 +73,17 @@
   <p class="info">• LavaApplication already exists, Id={{ appId }} ({{ appCheck[0].Name }})</p>
 {% endif %}
 
-{%- comment -%} --- Bail out if app step failed --- {%- endcomment -%}
-{% unless appStepOk %}
-  <p class="fail">Aborting — cannot create endpoint without a valid LavaApplication Id.</p>
-</div>
-{% else %}
+{%- comment -%} --- Proceed only if the app step succeeded --- {%- endcomment -%}
+{% if appStepOk and appId and appId > 0 %}
 
 {%- comment -%} --- Step 2: Look up endpoint inside the verified app --- {%- endcomment -%}
-{% sql return:'endpointCheck' %}
+{%- comment -%}
+  Use parameterized SQL (@appid) — safer than {{ }} interpolation and avoids
+  "Incorrect syntax near the keyword 'AND'" if the interpolation renders empty.
+{%- endcomment -%}
+{% sql return:'endpointCheck' appid:'{{ appId }}' %}
   SELECT Id FROM LavaEndpoint
-  WHERE LavaApplicationId = {{ appId }} AND Slug = 'featured-events'
+  WHERE LavaApplicationId = @appid AND Slug = 'featured-events'
 {% endsql %}
 
 {%- comment -%}
@@ -299,5 +300,8 @@
   <p>Or shorthand in a Content Block: <code>^/oa-weekend-api/featured-events?months=3</code></p>
 {% endif %}
 
-{% endunless %}
+{% else %}
+  <p class="fail">Aborting — cannot create endpoint without a valid LavaApplication Id.</p>
+{% endif %}
+
 </div>
