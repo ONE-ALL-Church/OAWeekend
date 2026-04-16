@@ -89,11 +89,25 @@
 {%- comment -%} Step 2: Capture the webhook template with secret embedded   {%- endcomment -%}
 {%- comment -%} ========================================================= {%- endcomment -%}
 
-{% capture webhookTemplate %}{%- raw -%}
+{%- comment -%}
+  We need to emit a literal "{%- assign expectedKey = 'SECRET' -%}" line
+  as TEXT into the stored template. A single raw block won't let us
+  splice the secret in. So capture in three parts and concatenate:
+
+    part1 = raw literal text up to "expectedKey = '"
+    part2 = the actual secret value (substituted normally)
+    part3 = raw literal text from "'" onward, containing the rest of
+            the template
+
+  Rock then stores the concatenation, which when EXECUTED by the webhook,
+  evaluates the {%- assign expectedKey = 'SECRET' -%} line normally.
+{%- endcomment -%}
+
+{% capture tmplPart1 %}{%- raw -%}
 {%- comment -%} Webhook: /Webhooks/Lava.ashx/oa-weekend/featured-events {%- endcomment -%}
-{%- endraw -%}
-{%- assign expectedKey = '{{ secretValue }}' -%}
-{%- raw -%}
+{%- assign expectedKey = '{%- endraw -%}{% endcapture %}
+{% capture tmplPart2 %}{{ secretValue }}{% endcapture %}
+{% capture tmplPart3 %}{%- raw -%}' -%}
 {%- assign providedKey = Headers['X-Webhook-Secret'] -%}
 {%- if providedKey != expectedKey -%}
 {%- httpresponse statuscode:'401' -%}[[ header key:'Content-Type' ]]application/json[[ endheader ]]{%- endhttpresponse -%}
@@ -217,6 +231,11 @@
 
 {%- endif -%}
 {%- endraw -%}{% endcapture %}
+
+{%- comment -%} Concatenate the three parts. tmplPart3 currently holds all
+     the logic after the secret. Rename it so the final assembled template
+     is captured as webhookTemplate. {%- endcomment -%}
+{% capture webhookTemplate %}{{ tmplPart1 }}{{ tmplPart2 }}{{ tmplPart3 }}{% endcapture %}
 
 {%- comment -%} ========================================================= {%- endcomment -%}
 {%- comment -%} Step 3: Create or update the Lava Webhook DefinedValue     {%- endcomment -%}
