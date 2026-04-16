@@ -144,7 +144,11 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
 
   return (
     <>
-      <div className="relative">
+      {/* min-w-0 is critical — parent is flex column, without min-w-0 this div
+          expands to fit the inner grid and overflow-x-auto never triggers.
+          The w-full forces it to the flex parent's width so the scrollable
+          child can overflow horizontally within a clipped viewport. */}
+      <div className="relative w-full min-w-0 overflow-hidden">
         {/* Left scroll button */}
         {canScrollLeft && (
           <button
