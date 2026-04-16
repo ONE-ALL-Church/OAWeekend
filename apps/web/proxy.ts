@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Dev-only auth bypass. Double-guarded: requires BOTH
+//   - NODE_ENV !== 'production'
+//   - DEV_AUTH_BYPASS === 'true'
+// The NODE_ENV check means a production build will never respect this flag
+// even if the env var is accidentally set.
+const DEV_AUTH_BYPASS =
+  process.env.NODE_ENV !== "production" &&
+  process.env.DEV_AUTH_BYPASS === "true";
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -10,6 +19,10 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/api/rock/");
 
   if (!isProtected) return NextResponse.next();
+
+  if (DEV_AUTH_BYPASS) {
+    return NextResponse.next();
+  }
 
   const token = request.cookies.get("instant_token");
   if (token?.value) {

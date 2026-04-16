@@ -115,7 +115,14 @@ export default function CalendarPage() {
     }
   }, [isSyncing, weeks]);
 
-  if (!user) {
+  // Dev-only auth bypass — lets us render the calendar UI locally without
+  // going through the OIDC flow. Requires NODE_ENV !== 'production' AND
+  // NEXT_PUBLIC_DEV_AUTH_BYPASS === 'true' (double-guarded).
+  const devAuthBypass =
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
+
+  if (!user && !devAuthBypass) {
     return (
       <main className="flex flex-1 items-center justify-center">
         <p className="text-sm text-oa-stone-300">Please sign in to view the calendar.</p>

@@ -153,7 +153,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
         {canScrollLeft && (
           <button
             onClick={() => scrollBy("left")}
-            className="absolute left-[180px] top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-oa-white/90 border border-oa-stone-200 shadow-md flex items-center justify-center text-oa-black-700 hover:bg-oa-sand-100 transition-colors"
+            className="absolute left-[180px] top-[220px] z-30 w-8 h-8 rounded-full bg-oa-white/95 border border-oa-stone-200 shadow-md flex items-center justify-center text-oa-black-700 hover:bg-oa-sand-100 transition-colors"
             aria-label="Scroll left"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -163,7 +163,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
         {canScrollRight && (
           <button
             onClick={() => scrollBy("right")}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-oa-white/90 border border-oa-stone-200 shadow-md flex items-center justify-center text-oa-black-700 hover:bg-oa-sand-100 transition-colors"
+            className="absolute right-2 top-[220px] z-30 w-8 h-8 rounded-full bg-oa-white/95 border border-oa-stone-200 shadow-md flex items-center justify-center text-oa-black-700 hover:bg-oa-sand-100 transition-colors"
             aria-label="Scroll right"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
