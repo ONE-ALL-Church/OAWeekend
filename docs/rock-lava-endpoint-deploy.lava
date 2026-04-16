@@ -1,0 +1,208 @@
+{%- comment -%}
+  ============================================================================
+  Deploy OA Weekend Featured Events Lava Endpoint
+  ============================================================================
+  Run this in the Rock Lava Tester with Enabled Commands:
+      RockEntityModify,Sql,RockEntity
+
+  Creates:
+    1. LavaApplication: "OA Weekend API" (slug: oa-weekend-api)
+    2. LavaEndpoint:    "Featured Events" (slug: featured-events)
+
+  Idempotent — safe to re-run. Checks for existing records first.
+  ============================================================================
+{%- endcomment -%}
+
+{%- comment -%} --- Step 1: Ensure LavaApplication exists --- {%- endcomment -%}
+{% sql return:'appCheck' %}
+  SELECT Id FROM LavaApplication WHERE Slug = 'oa-weekend-api'
+{% endsql %}
+
+{% if appCheck == empty %}
+  {% modifylavaapplication id:'0' securityenabled:'false' %}
+    [[ property name:'Name' ]]OA Weekend API[[ endproperty ]]
+    [[ property name:'Description' ]]Endpoints for the OA Weekend strategic calendar. Provides featured events with expanded schedule dates for the weekend planning UI.[[ endproperty ]]
+    [[ property name:'Slug' ]]oa-weekend-api[[ endproperty ]]
+    [[ property name:'IsActive' ]]true[[ endproperty ]]
+    [[ property name:'IsSystem' ]]false[[ endproperty ]]
+    [[ property name:'ConfigurationRiggingJson' ]]{}[[ endproperty ]]
+  {% endmodifylavaapplication %}
+  {% assign appId = ModifyResult.Object.Id %}
+  <p>Created LavaApplication Id={{ appId }}</p>
+{% else %}
+  {% assign appId = appCheck[0].Id %}
+  <p>LavaApplication already exists, Id={{ appId }}</p>
+{% endif %}
+
+{%- comment -%} --- Step 2: Ensure LavaEndpoint exists --- {%- endcomment -%}
+{% sql return:'endpointCheck' %}
+  SELECT Id FROM LavaEndpoint
+  WHERE LavaApplicationId = {{ appId }} AND Slug = 'featured-events'
+{% endsql %}
+
+{%- comment -%}
+  Endpoint properties:
+    HttpMethod: "Get"
+    SecurityMode: 0 (Execute) — endpoint callable by anyone with execute-view
+                  Use 1 (ApplicationView) to require app-level view auth
+    EnabledLavaCommands: RockEntity,Sql,EventScheduledInstance (NO spaces)
+{%- endcomment -%}
+
+{% capture codeTemplate %}[{%- raw -%}
+{%- assign months = 'Global' | PageParameter:'months' | Default:'3' | AsInteger -%}
+{%- assign dateRange = months | Append:'m' -%}
+
+{%- sql return:'calendarItems' -%}
+  SELECT eci.Id AS CalendarItemId, eci.EventItemId, ei.Name, ei.Summary, ei.Description, ei.PhotoId, ei.DetailsUrl
+  FROM EventCalendarItem eci
+  INNER JOIN EventItem ei ON ei.Id = eci.EventItemId
+  WHERE eci.EventCalendarId = 1 AND ei.IsActive = 1
+{%- endsql -%}
+
+{%- assign eventCount = 0 -%}
+
+{%- for item in calendarItems -%}
+  {%- assign featuredValue = '' -%}
+  {%- assign campusesValue = '' -%}
+  {%- assign ministryValue = '' -%}
+  {%- assign ctaValue = '' -%}
+
+  {%- sql return:'attrs' -%}
+    SELECT a.[Key] AS [Key],
+           COALESCE(av.Value, '') AS [Value],
+           COALESCE(
+             STUFF((
+               SELECT ', ' + dv.Value
+               FROM STRING_SPLIT(av.Value, ',') s
+               INNER JOIN DefinedValue dv ON TRY_CAST(s.value AS UNIQUEIDENTIFIER) = dv.Guid
+               FOR XML PATH('')
+             ), 1, 2, ''),
+             av.Value, ''
+           ) AS [TextValue]
+    FROM AttributeValue av
+    INNER JOIN Attribute a ON a.Id = av.AttributeId
+    WHERE av.EntityId = {{ item.CalendarItemId }}
+      AND a.EntityTypeId = (SELECT Id FROM EntityType WHERE Name = 'Rock.Model.EventCalendarItem')
+      AND a.[Key] IN ('FeaturedEvent', 'ForCampuses', 'ForMinistry', 'CallsToAction')
+  {%- endsql -%}
+
+  {%- for attr in attrs -%}
+    {%- if attr.Key == 'FeaturedEvent' -%}{%- assign featuredValue = attr.Value -%}{%- endif -%}
+    {%- if attr.Key == 'ForCampuses' -%}{%- assign campusesValue = attr.TextValue -%}{%- endif -%}
+    {%- if attr.Key == 'ForMinistry' -%}{%- assign ministryValue = attr.TextValue -%}{%- endif -%}
+    {%- if attr.Key == 'CallsToAction' -%}{%- assign ctaValue = attr.Value -%}{%- endif -%}
+  {%- endfor -%}
+
+  {%- assign isFeatured = false -%}
+  {%- if featuredValue == 'value1' or featuredValue == 'True' or featuredValue == 'true' -%}
+    {%- assign isFeatured = true -%}
+  {%- endif -%}
+
+  {%- if isFeatured -%}
+    {%- eventscheduledinstance eventid:'{{ item.EventItemId }}' maxoccurrences:'50' daterange:'{{ dateRange }}' -%}{%- endeventscheduledinstance -%}
+
+    {%- assign photoUrl = '' -%}
+    {%- if item.PhotoId and item.PhotoId > 0 -%}
+      {%- capture photoUrl -%}/GetImage.ashx?id={{ item.PhotoId }}{%- endcapture -%}
+    {%- endif -%}
+
+    {%- assign campusList = campusesValue | Split:',' -%}
+    {%- assign ctaPairs = ctaValue | Split:'|' -%}
+
+    {%- if eventCount > 0 -%},{%- endif -%}
+    {%- assign eventCount = eventCount | Plus:1 -%}
+    {
+      "eventItemId": {{ item.EventItemId }},
+      "name": {{ item.Name | ToJSON }},
+      "summary": {{ item.Summary | Default:'' | ToJSON }},
+      "photoUrl": {{ photoUrl | ToJSON }},
+      "detailsUrl": {{ item.DetailsUrl | Default:'' | ToJSON }},
+      "campuses": {{ campusesValue | ToJSON }},
+      "campusList": [
+        {%- assign ci = 0 -%}
+        {%- for c in campusList -%}
+          {%- assign trimmed = c | Trim -%}
+          {%- if trimmed != '' -%}
+            {%- if ci > 0 -%},{%- endif -%}
+            {{ trimmed | ToJSON }}
+            {%- assign ci = ci | Plus:1 -%}
+          {%- endif -%}
+        {%- endfor -%}
+      ],
+      "ministry": {{ ministryValue | ToJSON }},
+      "callsToAction": [
+        {%- assign ctaIndex = 0 -%}
+        {%- for pair in ctaPairs -%}
+          {%- assign parts = pair | Split:'^' -%}
+          {%- if parts.size == 2 -%}
+            {%- assign ctaLabel = parts[0] | Trim -%}
+            {%- assign ctaUrl = parts[1] | Trim -%}
+            {%- if ctaLabel != '' and ctaUrl != '' -%}
+              {%- if ctaIndex > 0 -%},{%- endif -%}
+              { "label": {{ ctaLabel | ToJSON }}, "url": {{ ctaUrl | ToJSON }} }
+              {%- assign ctaIndex = ctaIndex | Plus:1 -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+      ],
+      "occurrences": [
+        {%- assign occIndex = 0 -%}
+        {%- for instance in EventScheduledInstances -%}
+          {%- if occIndex > 0 -%},{%- endif -%}
+          {
+            "date": {{ instance.DateTime | Date:'yyyy-MM-ddTHH:mm:ss' | ToJSON }},
+            "endDate": {{ instance.EndDate | Date:'yyyy-MM-ddTHH:mm:ss' | Default:'' | ToJSON }},
+            "campus": {{ instance.Campus | Default:'' | ToJSON }},
+            "location": {{ instance.Location | Default:'' | ToJSON }},
+            "locationDescription": {{ instance.LocationDescription | Default:'' | ToJSON }},
+            "note": {{ instance.OccurrenceNote | Default:'' | ToJSON }}
+          }
+          {%- assign occIndex = occIndex | Plus:1 -%}
+        {%- endfor -%}
+      ]
+    }
+  {%- endif -%}
+{%- endfor -%}
+{%- endraw -%}]
+{% endcapture %}
+
+{% if endpointCheck == empty %}
+  {% modifylavaendpoint id:'0' securityenabled:'false' %}
+    [[ property name:'LavaApplicationId' ]]{{ appId }}[[ endproperty ]]
+    [[ property name:'Name' ]]Featured Events[[ endproperty ]]
+    [[ property name:'Description' ]]Returns all featured events from Calendar 1 with expanded schedule dates via eventscheduledinstance. Supports ?months=N (default 3) to adjust the date range.[[ endproperty ]]
+    [[ property name:'Slug' ]]featured-events[[ endproperty ]]
+    [[ property name:'HttpMethod' ]]Get[[ endproperty ]]
+    [[ property name:'SecurityMode' ]]0[[ endproperty ]]
+    [[ property name:'EnabledLavaCommands' ]]RockEntity,Sql,EventScheduledInstance[[ endproperty ]]
+    [[ property name:'IsActive' ]]true[[ endproperty ]]
+    [[ property name:'CodeTemplate' injectionpreventionenabled:'false' ]]{{ codeTemplate }}[[ endproperty ]]
+  {% endmodifylavaendpoint %}
+  {% assign endpointId = ModifyResult.Object.Id %}
+  <p>Created LavaEndpoint Id={{ endpointId }}</p>
+{% else %}
+  {% assign endpointId = endpointCheck[0].Id %}
+  {% modifylavaendpoint id:'{{ endpointId }}' securityenabled:'false' %}
+    [[ property name:'EnabledLavaCommands' ]]RockEntity,Sql,EventScheduledInstance[[ endproperty ]]
+    [[ property name:'CodeTemplate' injectionpreventionenabled:'false' ]]{{ codeTemplate }}[[ endproperty ]]
+  {% endmodifylavaendpoint %}
+  <p>Updated existing LavaEndpoint Id={{ endpointId }}</p>
+{% endif %}
+
+{%- comment -%} --- Step 3: Verify --- {%- endcomment -%}
+{% sql return:'verify' %}
+  SELECT la.Slug AS AppSlug, le.Slug AS EndpointSlug, le.HttpMethod, le.IsActive
+  FROM LavaApplication la
+  INNER JOIN LavaEndpoint le ON le.LavaApplicationId = la.Id
+  WHERE la.Slug = 'oa-weekend-api'
+{% endsql %}
+
+<h3>Deployment verified:</h3>
+<ul>
+{% for r in verify %}
+  <li>{{ r.AppSlug }}/{{ r.EndpointSlug }} ({{ r.HttpMethod }}) — active: {{ r.IsActive }}</li>
+{% endfor %}
+</ul>
+
+<p>Test URL: <code>https://www.oneandall.church/api/v2/lava-app/1/oa-weekend-api/featured-events?months=3</code></p>
+<p>Or shorthand: <code>^/oa-weekend-api/featured-events?months=3</code></p>
