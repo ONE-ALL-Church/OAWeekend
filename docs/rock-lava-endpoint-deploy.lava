@@ -9,14 +9,39 @@
     1. LavaApplication: "OA Weekend API" (slug: oa-weekend-api)
     2. LavaEndpoint:    "Featured Events" (slug: featured-events)
 
-  Idempotent — safe to re-run. Checks for existing records first.
+  Pattern: idempotent check-then-modify (not dbtransaction).
+  - Safe to re-run — existing records are updated, missing ones are created.
+  - Each step bails out on failure with the validation error, so you see
+    exactly which step broke instead of a generic rollback message.
+  - The app must succeed before the endpoint attempts its save (we need the
+    app's Id as a foreign key).
+
+  Why not {% dbtransaction %}?
+    Per the Helix docs, dbtransaction provides atomic rollback but does NOT
+    reset the DbContext. For a deploy script, the check-then-modify pattern
+    is safer: a partial success (app created, endpoint failed) is recoverable
+    by re-running — we don't want Rock to roll back the app on endpoint
+    failure just to re-create it on the next run.
   ============================================================================
 {%- endcomment -%}
 
+<style>
+  .deploy-log { font-family: monospace; font-size: 13px; line-height: 1.6; }
+  .deploy-log .ok { color: #16a34a; }
+  .deploy-log .fail { color: #dc2626; }
+  .deploy-log .info { color: #6b7280; }
+  .deploy-log .errors { background: #fef2f2; border-left: 3px solid #dc2626; padding: 8px 12px; margin: 4px 0; }
+</style>
+
+<div class="deploy-log">
+
 {%- comment -%} --- Step 1: Ensure LavaApplication exists --- {%- endcomment -%}
 {% sql return:'appCheck' %}
-  SELECT Id FROM LavaApplication WHERE Slug = 'oa-weekend-api'
+  SELECT Id, Name FROM LavaApplication WHERE Slug = 'oa-weekend-api'
 {% endsql %}
+
+{% assign appId = 0 %}
+{% assign appStepOk = false %}
 
 {% if appCheck == empty %}
   {% modifylavaapplication id:'0' securityenabled:'false' %}
@@ -27,14 +52,34 @@
     [[ property name:'IsSystem' ]]false[[ endproperty ]]
     [[ property name:'ConfigurationRiggingJson' ]]{}[[ endproperty ]]
   {% endmodifylavaapplication %}
-  {% assign appId = ModifyResult.Object.Id %}
-  <p>Created LavaApplication Id={{ appId }}</p>
+
+  {% if ModifyResult.Success %}
+    {% assign appId = ModifyResult.Object.Id %}
+    {% assign appStepOk = true %}
+    <p class="ok">✓ Created LavaApplication Id={{ appId }} (OA Weekend API)</p>
+  {% else %}
+    <p class="fail">✗ Failed to create LavaApplication: {{ ModifyResult.ErrorMessage }}</p>
+    {% if ModifyResult.ValidationErrors and ModifyResult.ValidationErrors != empty %}
+      <div class="errors">
+        {% for err in ModifyResult.ValidationErrors %}
+          <div>• {{ err.ErrorMessage }}{% if err.SourceControl %} <span class="info">({{ err.SourceControl }})</span>{% endif %}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endif %}
 {% else %}
   {% assign appId = appCheck[0].Id %}
-  <p>LavaApplication already exists, Id={{ appId }}</p>
+  {% assign appStepOk = true %}
+  <p class="info">• LavaApplication already exists, Id={{ appId }} ({{ appCheck[0].Name }})</p>
 {% endif %}
 
-{%- comment -%} --- Step 2: Ensure LavaEndpoint exists --- {%- endcomment -%}
+{%- comment -%} --- Bail out if app step failed --- {%- endcomment -%}
+{% unless appStepOk %}
+  <p class="fail">Aborting — cannot create endpoint without a valid LavaApplication Id.</p>
+</div>
+{% else %}
+
+{%- comment -%} --- Step 2: Look up endpoint inside the verified app --- {%- endcomment -%}
 {% sql return:'endpointCheck' %}
   SELECT Id FROM LavaEndpoint
   WHERE LavaApplicationId = {{ appId }} AND Slug = 'featured-events'
@@ -166,7 +211,12 @@
 {%- endraw -%}]
 {% endcapture %}
 
+{% assign endpointStepOk = false %}
+{% assign endpointId = 0 %}
+{% assign endpointAction = '' %}
+
 {% if endpointCheck == empty %}
+  {% assign endpointAction = 'Created' %}
   {% modifylavaendpoint id:'0' securityenabled:'false' %}
     [[ property name:'LavaApplicationId' ]]{{ appId }}[[ endproperty ]]
     [[ property name:'Name' ]]Featured Events[[ endproperty ]]
@@ -178,31 +228,76 @@
     [[ property name:'IsActive' ]]true[[ endproperty ]]
     [[ property name:'CodeTemplate' injectionpreventionenabled:'false' ]]{{ codeTemplate }}[[ endproperty ]]
   {% endmodifylavaendpoint %}
-  {% assign endpointId = ModifyResult.Object.Id %}
-  <p>Created LavaEndpoint Id={{ endpointId }}</p>
 {% else %}
+  {% assign endpointAction = 'Updated' %}
   {% assign endpointId = endpointCheck[0].Id %}
   {% modifylavaendpoint id:'{{ endpointId }}' securityenabled:'false' %}
+    [[ property name:'Name' ]]Featured Events[[ endproperty ]]
+    [[ property name:'Description' ]]Returns all featured events from Calendar 1 with expanded schedule dates via eventscheduledinstance. Supports ?months=N (default 3) to adjust the date range.[[ endproperty ]]
+    [[ property name:'HttpMethod' ]]Get[[ endproperty ]]
+    [[ property name:'SecurityMode' ]]0[[ endproperty ]]
     [[ property name:'EnabledLavaCommands' ]]RockEntity,Sql,EventScheduledInstance[[ endproperty ]]
+    [[ property name:'IsActive' ]]true[[ endproperty ]]
     [[ property name:'CodeTemplate' injectionpreventionenabled:'false' ]]{{ codeTemplate }}[[ endproperty ]]
   {% endmodifylavaendpoint %}
-  <p>Updated existing LavaEndpoint Id={{ endpointId }}</p>
 {% endif %}
 
-{%- comment -%} --- Step 3: Verify --- {%- endcomment -%}
+{% if ModifyResult.Success %}
+  {% assign endpointStepOk = true %}
+  {% assign endpointId = ModifyResult.Object.Id %}
+  <p class="ok">✓ {{ endpointAction }} LavaEndpoint Id={{ endpointId }} (Featured Events)</p>
+{% else %}
+  <p class="fail">✗ Failed to {{ endpointAction | Downcase }} LavaEndpoint: {{ ModifyResult.ErrorMessage }}</p>
+  {% if ModifyResult.ValidationErrors and ModifyResult.ValidationErrors != empty %}
+    <div class="errors">
+      {% for err in ModifyResult.ValidationErrors %}
+        <div>• {{ err.ErrorMessage }}{% if err.SourceControl %} <span class="info">({{ err.SourceControl }})</span>{% endif %}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  <p class="info">App Id {{ appId }} was preserved. Fix the error above and re-run — the endpoint step will retry.</p>
+{% endif %}
+
+{%- comment -%} --- Step 3: Verify final state --- {%- endcomment -%}
 {% sql return:'verify' %}
-  SELECT la.Slug AS AppSlug, le.Slug AS EndpointSlug, le.HttpMethod, le.IsActive
+  SELECT la.Id AS AppId, la.Slug AS AppSlug, la.IsActive AS AppActive,
+         le.Id AS EndpointId, le.Slug AS EndpointSlug, le.HttpMethod,
+         le.IsActive AS EndpointActive, le.SecurityMode,
+         LEN(le.CodeTemplate) AS TemplateBytes
   FROM LavaApplication la
-  INNER JOIN LavaEndpoint le ON le.LavaApplicationId = la.Id
+  LEFT JOIN LavaEndpoint le ON le.LavaApplicationId = la.Id
   WHERE la.Slug = 'oa-weekend-api'
 {% endsql %}
 
-<h3>Deployment verified:</h3>
-<ul>
-{% for r in verify %}
-  <li>{{ r.AppSlug }}/{{ r.EndpointSlug }} ({{ r.HttpMethod }}) — active: {{ r.IsActive }}</li>
-{% endfor %}
-</ul>
+<h3>Final state:</h3>
+<table style="border-collapse:collapse;">
+  <thead>
+    <tr style="background:#f3f4f6;">
+      <th style="padding:4px 12px;text-align:left;border:1px solid #e5e7eb;">Route</th>
+      <th style="padding:4px 12px;text-align:left;border:1px solid #e5e7eb;">Method</th>
+      <th style="padding:4px 12px;text-align:left;border:1px solid #e5e7eb;">SecurityMode</th>
+      <th style="padding:4px 12px;text-align:left;border:1px solid #e5e7eb;">Active</th>
+      <th style="padding:4px 12px;text-align:left;border:1px solid #e5e7eb;">Template Size</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in verify %}
+    <tr>
+      <td style="padding:4px 12px;border:1px solid #e5e7eb;">{{ r.AppSlug }}/{{ r.EndpointSlug | Default:'(no endpoint)' }}</td>
+      <td style="padding:4px 12px;border:1px solid #e5e7eb;">{{ r.HttpMethod | Default:'—' }}</td>
+      <td style="padding:4px 12px;border:1px solid #e5e7eb;">{{ r.SecurityMode | Default:'—' }}</td>
+      <td style="padding:4px 12px;border:1px solid #e5e7eb;">{{ r.EndpointActive | Default:r.AppActive }}</td>
+      <td style="padding:4px 12px;border:1px solid #e5e7eb;">{{ r.TemplateBytes | Default:'—' }} bytes</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
 
-<p>Test URL: <code>https://www.oneandall.church/api/v2/lava-app/1/oa-weekend-api/featured-events?months=3</code></p>
-<p>Or shorthand: <code>^/oa-weekend-api/featured-events?months=3</code></p>
+{% if endpointStepOk %}
+  <h3 class="ok">✓ Deployment complete</h3>
+  <p>Test URL: <code>https://www.oneandall.church/api/v2/lava-app/1/oa-weekend-api/featured-events?months=3</code></p>
+  <p>Or shorthand in a Content Block: <code>^/oa-weekend-api/featured-events?months=3</code></p>
+{% endif %}
+
+{% endunless %}
+</div>
