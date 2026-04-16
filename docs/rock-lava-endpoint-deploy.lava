@@ -89,9 +89,20 @@
 {%- comment -%}
   Endpoint properties:
     HttpMethod: "Get"
-    SecurityMode: 0 (Execute) — endpoint callable by anyone with execute-view
-                  Use 1 (ApplicationView) to require app-level view auth
+    SecurityMode: 1 (ApplicationView) — defers auth to the parent app's
+                  ExecuteView rule. See security setup step below.
+                  (0 = Execute — checks rule on endpoint itself;
+                   more granular but requires per-endpoint auth setup.)
     EnabledLavaCommands: RockEntity,Sql,EventScheduledInstance (NO spaces)
+
+  SECURITY SETUP — REQUIRED AFTER DEPLOY:
+    The API returns 401 until an ExecuteView rule exists on the parent
+    LavaApplication. Grant it in the Rock admin UI:
+      1. Admin Tools → CMS Configuration → Lava Applications → OA Weekend API
+      2. Click the lock (Security) icon
+      3. Execute View tab → Add → Allow → [role or All Users]
+    Auth rules can't be set via modify commands (Auth entity has complex
+    ordering and scoped rules that the modify protocol doesn't expose).
 {%- endcomment -%}
 
 {% capture codeTemplate %}[{%- raw -%}
@@ -224,7 +235,7 @@
     [[ property name:'Description' ]]Returns all featured events from Calendar 1 with expanded schedule dates via eventscheduledinstance. Supports ?months=N (default 3) to adjust the date range.[[ endproperty ]]
     [[ property name:'Slug' ]]featured-events[[ endproperty ]]
     [[ property name:'HttpMethod' ]]Get[[ endproperty ]]
-    [[ property name:'SecurityMode' ]]0[[ endproperty ]]
+    [[ property name:'SecurityMode' ]]1[[ endproperty ]]
     [[ property name:'EnabledLavaCommands' ]]RockEntity,Sql,EventScheduledInstance[[ endproperty ]]
     [[ property name:'IsActive' ]]true[[ endproperty ]]
     [[ property name:'CodeTemplate' injectionpreventionenabled:'false' ]]{{ codeTemplate }}[[ endproperty ]]
@@ -236,7 +247,7 @@
     [[ property name:'Name' ]]Featured Events[[ endproperty ]]
     [[ property name:'Description' ]]Returns all featured events from Calendar 1 with expanded schedule dates via eventscheduledinstance. Supports ?months=N (default 3) to adjust the date range.[[ endproperty ]]
     [[ property name:'HttpMethod' ]]Get[[ endproperty ]]
-    [[ property name:'SecurityMode' ]]0[[ endproperty ]]
+    [[ property name:'SecurityMode' ]]1[[ endproperty ]]
     [[ property name:'EnabledLavaCommands' ]]RockEntity,Sql,EventScheduledInstance[[ endproperty ]]
     [[ property name:'IsActive' ]]true[[ endproperty ]]
     [[ property name:'CodeTemplate' injectionpreventionenabled:'false' ]]{{ codeTemplate }}[[ endproperty ]]
