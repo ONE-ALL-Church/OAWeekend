@@ -430,11 +430,23 @@ async function getFeaturedEventsViaWebhook(
 
   if (!Array.isArray(raw)) return null;
 
-  return raw.map((ev) => ({
+  return raw.map((ev) => {
+    // Webhook returns "/GetImage.ashx?id=179637" — extract the id and route
+    // through our image proxy at /api/rock/image?id=<n>.
+    let photoUrl: string | null = null;
+    if (ev.photoUrl) {
+      const idMatch = ev.photoUrl.match(/[?&]id=(\d+)/i);
+      if (idMatch) {
+        photoUrl = `/api/rock/image?id=${idMatch[1]}`;
+      } else if (ev.photoUrl.startsWith("http")) {
+        photoUrl = ev.photoUrl;
+      }
+    }
+    return {
     eventItemId: ev.eventItemId,
     name: ev.name,
     summary: ev.summary,
-    photoUrl: ev.photoUrl ? (ev.photoUrl.startsWith("/") ? `/api/rock/image?path=${encodeURIComponent(ev.photoUrl)}` : ev.photoUrl) : null,
+    photoUrl,
     detailsUrl: ev.detailsUrl,
     campuses: ev.campuses,
     campusList: ev.campusList ?? [],
@@ -446,7 +458,8 @@ async function getFeaturedEventsViaWebhook(
       nextStartDateTime: o.date,
       location: o.location,
     })),
-  }));
+    };
+  });
 }
 
 /**
