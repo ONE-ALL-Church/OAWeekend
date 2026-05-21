@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { id } from "@instantdb/admin";
 import adminDb from "@/lib/instant-admin";
 
+const WEEK_SYNC_DELAY_MS = 3_000;
+
 /**
  * Daily cron to sync calendar data from Planning Center and Rock.
  * Creates missing weeks and prefills the next 8 Saturdays.
@@ -71,43 +73,13 @@ export async function GET(request: Request) {
     // Prefill each week from PCO + Rock
     const baseUrl = new URL(request.url).origin;
 
-    const results = await Promise.all(
-      weekStarts.map(async (ws) => {
-        try {
-          const res = await fetch(
-            `${baseUrl}/api/calendar/week/${ws}/prefill-planning-center`,
-            {
-              method: "POST",
-              headers: { authorization: `Bearer ${cronSecret}` },
-            },
-          );
-          const body = await res.text();
-          const data = body ? JSON.parse(body) : {};
-          if (!res.ok) {
-            return {
-              week: ws,
-              written: [],
-              ok: false,
-              status: res.status,
-              error: data.error ?? body.slice(0, 200),
-            };
-          }
-          return {
-            week: ws,
-            written: data.written ?? [],
-            ok: true,
-            status: res.status,
-          };
-        } catch (error) {
-          return {
-            week: ws,
-            written: [],
-            ok: false,
-            error: error instanceof Error ? error.message : "Unknown sync error",
-          };
-        }
-      }),
-    );
+    const results: Array<Awaited<ReturnType<typeof syncWeek>>> = [];
+    for (const [index, ws] of weekStarts.entries()) {
+      results.push(await syncWeek(baseUrl, ws, cronSecret));
+      if (index < weekStarts.length - 1) {
+        await sleep(WEEK_SYNC_DELAY_MS);
+      }
+    }
 
     return NextResponse.json({
       ok: true,
@@ -121,4 +93,44 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
+}
+
+async function syncWeek(baseUrl: string, weekStart: string, cronSecret: string) {
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/calendar/week/${weekStart}/prefill-planning-center`,
+      {
+        method: "POST",
+        headers: { authorization: `Bearer ${cronSecret}` },
+      },
+    );
+    const body = await res.text();
+    const data = body ? JSON.parse(body) : {};
+    if (!res.ok) {
+      return {
+        week: weekStart,
+        written: [],
+        ok: false,
+        status: res.status,
+        error: data.error ?? body.slice(0, 200),
+      };
+    }
+    return {
+      week: weekStart,
+      written: data.written ?? [],
+      ok: true,
+      status: res.status,
+    };
+  } catch (error) {
+    return {
+      week: weekStart,
+      written: [],
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown sync error",
+    };
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
