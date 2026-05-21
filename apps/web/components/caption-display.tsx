@@ -1,13 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-
-// --- Public types ---
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export interface CaptionLine {
   id: number;
   text: string;
   timestamp: number;
+  startMs?: number;
+  endMs?: number;
+}
+
+interface CaptionDisplayProps {
+  fontSize: number;
+  positionVertical: "top" | "middle" | "bottom";
+  maxLines?: number;
+}
+
+export function CaptionDisplay({
+  fontSize,
+  positionVertical,
+  maxLines = 3,
+}: CaptionDisplayProps) {
+  void fontSize;
+  void positionVertical;
+  void maxLines;
+  return null;
 }
 
 interface CaptionOverlayProps {
@@ -15,202 +32,316 @@ interface CaptionOverlayProps {
   positionVertical: "top" | "middle" | "bottom";
   maxLines?: number;
   paused: boolean;
-  completedLines: CaptionLine[];
+  lines: CaptionLine[];
   textColorClass?: string;
 }
 
-// --- Constants ---
-
-const FADE_DURATION = 600;
-const LINE_MAX_AGE = 10000;
-const PADDING_VW = 5;
-
-// --- Text measurement ---
-
-function createTextMeasurer(fontSize: number) {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d")!;
-  ctx.font = `600 ${fontSize}px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
-  return (text: string) => ctx.measureText(text).width;
+interface CaptionCue {
+  id: string;
+  sourceId: number;
+  text: string;
+  lines: string[];
+  durationMs: number;
 }
 
-function splitIntoVisualLines(
-  text: string,
-  maxWidth: number,
-  measure: (text: string) => number
-): string[] {
-  if (!text.trim()) return [];
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
+interface ArchivedCue extends CaptionCue {
+  exitedAt: number;
+}
+
+const MAX_CHARS_PER_LINE = 36;
+const TARGET_CHARS_PER_LINE = 28;
+const MAX_WORDS_PER_CUE = 12;
+const MIN_CUE_DURATION_MS = 1200;
+const MAX_CUE_DURATION_MS = 3400;
+const HISTORY_RETENTION_MS = 7000;
+const MAX_HISTORY_CUES = 8;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeText(text: string) {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function splitLongPhrase(phrase: string) {
+  const words = phrase.split(" ");
+  const chunks: string[] = [];
+  let current: string[] = [];
+
   for (const word of words) {
-    const test = current ? `${current} ${word}` : word;
-    if (current && measure(test) > maxWidth) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = test;
+    const nextWords = [...current, word];
+    const nextText = nextWords.join(" ");
+    if (
+      current.length > 0 &&
+      (nextWords.length > MAX_WORDS_PER_CUE || nextText.length > MAX_CHARS_PER_LINE * 2)
+    ) {
+      chunks.push(current.join(" "));
+      current = [word];
+      continue;
+    }
+    current = nextWords;
+  }
+
+  if (current.length > 0) {
+    chunks.push(current.join(" "));
+  }
+
+  return chunks;
+}
+
+function splitIntoCueTexts(text: string) {
+  const normalized = normalizeText(text);
+  if (!normalized) return [];
+
+  const clauses = normalized
+    .split(/(?<=[,;:.!?])\s+|(?<=\))\s+|(?<=\])\s+/)
+    .flatMap((clause) => splitLongPhrase(clause));
+
+  const cues: string[] = [];
+  let current = "";
+
+  for (const clause of clauses) {
+    const next = current ? `${current} ${clause}` : clause;
+    const nextWordCount = next.split(" ").length;
+    if (
+      current &&
+      (next.length > MAX_CHARS_PER_LINE * 2 || nextWordCount > MAX_WORDS_PER_CUE)
+    ) {
+      cues.push(current);
+      current = clause;
+      continue;
+    }
+    current = next;
+  }
+
+  if (current) {
+    cues.push(current);
+  }
+
+  return cues;
+}
+
+function balanceCueLines(text: string) {
+  if (text.length <= MAX_CHARS_PER_LINE) return [text];
+
+  const words = text.split(" ");
+  let bestSplit = 1;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let i = 1; i < words.length; i += 1) {
+    const top = words.slice(0, i).join(" ");
+    const bottom = words.slice(i).join(" ");
+    const tooWide = top.length > MAX_CHARS_PER_LINE || bottom.length > MAX_CHARS_PER_LINE;
+    const balancePenalty = Math.abs(top.length - bottom.length);
+    const targetPenalty =
+      Math.abs(top.length - TARGET_CHARS_PER_LINE) +
+      Math.abs(bottom.length - TARGET_CHARS_PER_LINE);
+    const score = balancePenalty + targetPenalty + (tooWide ? 1000 : 0);
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestSplit = i;
     }
   }
-  if (current) lines.push(current);
-  return lines;
+
+  const top = words.slice(0, bestSplit).join(" ");
+  const bottom = words.slice(bestSplit).join(" ");
+  return bottom ? [top, bottom] : [top];
 }
 
-// --- Frozen row ---
-
-interface FrozenRow {
-  id: number;
-  text: string;
-  groupId: number;
-  timestamp: number;
+function cueDurationMs(text: string, audioDurationMs: number, queueDepth: number) {
+  const readingMs = clamp(text.length * 52, MIN_CUE_DURATION_MS, MAX_CUE_DURATION_MS);
+  const sourceMs = audioDurationMs > 0 ? clamp(audioDurationMs, MIN_CUE_DURATION_MS, 5000) : 0;
+  const base = Math.max(readingMs, sourceMs);
+  const pressureFactor = queueDepth >= 5 ? 0.66 : queueDepth >= 3 ? 0.78 : queueDepth >= 1 ? 0.9 : 1;
+  return clamp(Math.round(base * pressureFactor), 900, MAX_CUE_DURATION_MS);
 }
 
-/**
- * Simple roll-up captions — finals only, no interim replacement.
- *
- * - Each final transcript is split into visual lines at word boundaries.
- * - Every row is `white-space: nowrap`, left-aligned, fixed height.
- * - Rows from the same transcript share a groupId and expire together.
- * - Layout is column-reverse: newest at bottom, old rows scroll up.
- * - Nothing is ever replaced or corrected after it's placed on screen.
- */
+function buildCueQueue(line: CaptionLine, queueDepth: number) {
+  const cueTexts = splitIntoCueTexts(line.text);
+  if (cueTexts.length === 0) return [];
+
+  const sourceDuration = Math.max(0, (line.endMs ?? 0) - (line.startMs ?? 0));
+  const totalChars = cueTexts.reduce((sum, cueText) => sum + cueText.length, 0) || 1;
+
+  return cueTexts.map((cueText, index) => {
+    const proportionalSourceMs = sourceDuration
+      ? Math.round((sourceDuration * cueText.length) / totalChars)
+      : 0;
+
+    return {
+      id: `${line.id}-${index}`,
+      sourceId: line.id,
+      text: cueText,
+      lines: balanceCueLines(cueText),
+      durationMs: cueDurationMs(cueText, proportionalSourceMs, queueDepth + index),
+    } satisfies CaptionCue;
+  });
+}
+
+function trimVisibleCues(
+  history: ArchivedCue[],
+  activeCue: CaptionCue | null,
+  maxLines: number,
+) {
+  const visible: Array<
+    | ({ isActive: true } & CaptionCue)
+    | ({ isActive: false } & ArchivedCue)
+  > = [];
+  let remainingLineBudget = Math.max(1, maxLines);
+
+  if (activeCue) {
+    visible.unshift({ ...activeCue, isActive: true });
+    remainingLineBudget -= activeCue.lines.length;
+  }
+
+  for (let i = history.length - 1; i >= 0 && remainingLineBudget > 0; i -= 1) {
+    const cue = history[i];
+    if (cue.lines.length > remainingLineBudget) continue;
+    visible.unshift({ ...cue, isActive: false });
+    remainingLineBudget -= cue.lines.length;
+  }
+
+  return visible;
+}
+
 export function CaptionOverlay({
   fontSize,
   positionVertical,
-  maxLines = 4,
+  maxLines = 3,
   paused,
-  completedLines,
+  lines,
   textColorClass = "text-white",
 }: CaptionOverlayProps) {
-  const [frozenRows, setFrozenRows] = useState<FrozenRow[]>([]);
-  const measureRef = useRef<((text: string) => number) | null>(null);
-  const rowIdRef = useRef(0);
-  const groupIdRef = useRef(0);
-  const prevCompletedLenRef = useRef(0);
+  const [pendingCues, setPendingCues] = useState<CaptionCue[]>([]);
+  const [activeCue, setActiveCue] = useState<CaptionCue | null>(null);
+  const [history, setHistory] = useState<ArchivedCue[]>([]);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const processedLineIdsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
-    measureRef.current = createTextMeasurer(fontSize);
-  }, [fontSize]);
+    const newLines = lines.filter((line) => !processedLineIdsRef.current.has(line.id));
+    if (newLines.length === 0) return;
 
-  const getMaxWidth = useCallback(() => {
-    if (typeof window === "undefined") return 800;
-    return window.innerWidth * (1 - (PADDING_VW * 2) / 100);
-  }, []);
+    for (const line of newLines) {
+      processedLineIdsRef.current.add(line.id);
+    }
 
-  // When new completed lines arrive, split into frozen visual rows
-  useEffect(() => {
-    if (paused) return;
-    const measure = measureRef.current;
-    if (!measure) return;
-
-    const newCount = completedLines.length;
-    const prevCount = prevCompletedLenRef.current;
-
-    if (newCount > prevCount) {
-      const maxWidth = getMaxWidth();
-      const newLines = completedLines.slice(prevCount);
-      const newRows: FrozenRow[] = [];
+    setPendingCues((prev) => {
+      const next = [...prev];
+      let queueDepth = next.length + (activeCue ? 1 : 0);
 
       for (const line of newLines) {
-        const gid = groupIdRef.current++;
-        const visualLines = splitIntoVisualLines(line.text, maxWidth, measure);
-        for (const vl of visualLines) {
-          newRows.push({
-            id: rowIdRef.current++,
-            text: vl,
-            groupId: gid,
-            timestamp: line.timestamp,
-          });
-        }
+        const cues = buildCueQueue(line, queueDepth);
+        next.push(...cues);
+        queueDepth += cues.length;
       }
 
-      setFrozenRows((prev) => [...prev, ...newRows]);
-    }
-    prevCompletedLenRef.current = newCount;
-  }, [completedLines, paused, getMaxWidth]);
+      return next;
+    });
+  }, [activeCue, lines]);
 
-  // Expire old frozen rows — entire groups at once
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (paused) return;
-      const now = Date.now();
-      setFrozenRows((prev) => {
-        const expiredGroups = new Set<number>();
-        for (const row of prev) {
-          if (now - row.timestamp >= LINE_MAX_AGE) {
-            expiredGroups.add(row.groupId);
-          }
+    if (paused || activeCue || pendingCues.length === 0) return;
+
+    const promoteTimer = setTimeout(() => {
+      setPendingCues((prev) => {
+        const [nextCue, ...rest] = prev;
+        if (nextCue) {
+          setActiveCue(nextCue);
         }
-        if (expiredGroups.size === 0) return prev;
-        return prev.filter((r) => !expiredGroups.has(r.groupId));
+        return rest;
       });
-    }, 1000);
-    return () => clearInterval(timer);
+    }, 0);
+
+    return () => clearTimeout(promoteTimer);
+  }, [activeCue, paused, pendingCues]);
+
+  useEffect(() => {
+    if (!activeCue || paused) return;
+
+    timeoutRef.current = setTimeout(() => {
+      const exitedAt = Date.now();
+      setHistory((prev) => [...prev, { ...activeCue, exitedAt }].slice(-MAX_HISTORY_CUES));
+      setActiveCue(null);
+    }, activeCue.durationMs);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [activeCue, paused]);
+
+  useEffect(() => {
+    if (paused) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setHistory((prev) => prev.filter((cue) => now - cue.exitedAt < HISTORY_RETENTION_MS));
+    }, 500);
+
+    return () => clearInterval(interval);
   }, [paused]);
 
-  const lineHeight = fontSize * 1.375;
-  const viewportHeight = lineHeight * maxLines;
-  const visibleFrozen = frozenRows.slice(-maxLines);
+  const visibleCues = useMemo(
+    () => trimVisibleCues(history, activeCue, maxLines),
+    [activeCue, history, maxLines],
+  );
 
-  // Group opacity: all rows in same group fade together
-  const groupOpacity = new Map<number, number>();
-  const now = Date.now();
-  for (const row of visibleFrozen) {
-    if (!groupOpacity.has(row.groupId)) {
-      const age = now - row.timestamp;
-      const fadingOut = age > LINE_MAX_AGE - FADE_DURATION;
-      groupOpacity.set(
-        row.groupId,
-        fadingOut
-          ? Math.max(0, 1 - (age - (LINE_MAX_AGE - FADE_DURATION)) / FADE_DURATION)
-          : 1
-      );
-    }
-  }
-
-  const positionStyle: React.CSSProperties = {
-    position: "fixed",
-    left: 0,
-    right: 0,
-    height: `${viewportHeight}px`,
-    ...(positionVertical === "top"
-      ? { top: "10vh" }
-      : positionVertical === "middle"
-        ? { top: "50%", transform: "translateY(-50%)" }
-        : { bottom: "10vh" }),
-  };
-
-  const rowStyle = (opacity: number): React.CSSProperties => ({
-    fontSize: `${fontSize}px`,
-    height: `${lineHeight}px`,
-    lineHeight: `${lineHeight}px`,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    opacity,
-    transition: `opacity ${FADE_DURATION}ms ease`,
-    flexShrink: 0,
-  });
+  const positionClass = {
+    top: "items-start pt-[8vh]",
+    middle: "items-center",
+    bottom: "items-end pb-[7vh]",
+  }[positionVertical];
 
   return (
-    <div style={positionStyle}>
-      <div
-        className="w-full px-[5vw]"
-        style={{
-          display: "flex",
-          flexDirection: "column-reverse",
-          height: "100%",
-          overflow: "hidden",
-        }}
-      >
-        {[...visibleFrozen].reverse().map((row) => (
-          <p
-            key={row.id}
-            className={`${textColorClass} font-semibold text-left`}
-            style={rowStyle(groupOpacity.get(row.groupId) ?? 1)}
-          >
-            {row.text}
-          </p>
-        ))}
+    <div className={`fixed inset-0 flex flex-col ${positionClass} pointer-events-none`}>
+      <div className="w-full px-[6vw]">
+        <div
+          className="mx-auto flex w-full max-w-[18ch] flex-col justify-end gap-[0.28em]"
+          style={{
+            minHeight: `${fontSize * Math.max(2.8, maxLines * 1.12)}px`,
+            maskImage:
+              "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.96) 48%, rgba(0,0,0,0.58) 78%, rgba(0,0,0,0) 100%)",
+            WebkitMaskImage:
+              "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.96) 48%, rgba(0,0,0,0.58) 78%, rgba(0,0,0,0) 100%)",
+          }}
+        >
+          {visibleCues.map((cue, index) => {
+            const distanceFromActive = visibleCues.length - 1 - index;
+            const opacity = cue.isActive ? 1 : Math.max(0.18, 0.72 - distanceFromActive * 0.24);
+            const translateY = cue.isActive ? 0 : distanceFromActive * -6;
+
+            return (
+              <div
+                key={cue.id}
+                className="transition-all duration-300 ease-out"
+                style={{
+                  opacity,
+                  transform: `translateY(${translateY}px)`,
+                }}
+              >
+                {cue.lines.map((lineText, lineIndex) => (
+                  <p
+                    key={`${cue.id}-${lineIndex}`}
+                    className={`${textColorClass} text-center font-semibold tracking-[-0.02em]`}
+                    style={{
+                      fontSize: `${fontSize}px`,
+                      lineHeight: 1.02,
+                      textShadow:
+                        "0 1px 2px rgba(0,0,0,0.45), 0 6px 18px rgba(0,0,0,0.28)",
+                    }}
+                  >
+                    {lineText}
+                  </p>
+                ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

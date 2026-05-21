@@ -44,7 +44,9 @@ export function SeriesHoverCard({ series, children }: SeriesHoverCardProps) {
   }, []);
 
   useEffect(() => {
-    if (showCard) updatePosition();
+    if (!showCard) return;
+    const frame = window.requestAnimationFrame(updatePosition);
+    return () => window.cancelAnimationFrame(frame);
   }, [showCard, updatePosition]);
 
   if (!hasDetails) {

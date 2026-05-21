@@ -3,8 +3,7 @@
 import { use, useState, useRef } from "react";
 import db from "@/lib/instant";
 import { useSession } from "@/hooks/use-session";
-import { CaptionOverlay } from "@/components/caption-display";
-import type { CaptionLine } from "@/components/caption-display";
+import { CaptionOverlay, type CaptionLine } from "@/components/caption-display";
 
 export default function DisplayPage({
   params,
@@ -13,8 +12,9 @@ export default function DisplayPage({
 }) {
   const { sessionId } = use(params);
   const { session } = useSession(sessionId);
-  const [completedLines, setCompletedLines] = useState<CaptionLine[]>([]);
+  const [lines, setLines] = useState<CaptionLine[]>([]);
   const lineIdRef = useRef(0);
+  const interimRef = useRef<string>("");
 
   // Subscribe to transcript topic for low-latency updates
   const room = db.room("captions", sessionId);
@@ -28,14 +28,20 @@ export default function DisplayPage({
     };
 
     if (data.kind === "final") {
-      setCompletedLines((prev) => [
+      interimRef.current = "";
+      setLines((prev) => [
         ...prev,
         {
           id: lineIdRef.current++,
           text: data.text,
           timestamp: Date.now(),
+          startMs: data.startMs,
+          endMs: data.endMs,
         },
       ]);
+    } else {
+      // Store interim for potential display (currently hidden)
+      interimRef.current = data.text;
     }
   });
 
@@ -64,7 +70,7 @@ export default function DisplayPage({
         }
         maxLines={3}
         paused={session.paused ?? false}
-        completedLines={completedLines}
+        lines={lines}
       />
     </div>
   );

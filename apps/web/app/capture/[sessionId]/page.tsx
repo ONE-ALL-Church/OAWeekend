@@ -83,23 +83,28 @@ export default function CapturePage({
   // Duration countdown + auto-stop
   useEffect(() => {
     if (!session || session.status !== "live") {
-      setRemainingMs(null);
       autoStopCalledRef.current = false;
-      return;
+      const timeout = window.setTimeout(() => setRemainingMs(null), 0);
+      return () => window.clearTimeout(timeout);
     }
     const userLimit = (session.maxDurationMinutes as number) ?? 120;
     const effectiveLimit = Math.min(userLimit, ABSOLUTE_MAX_DURATION_MINUTES);
     const deadlineMs = (session.startedAt as number) + effectiveLimit * 60_000;
 
-    const interval = setInterval(() => {
+    const updateRemaining = () => {
       const remaining = deadlineMs - Date.now();
       setRemainingMs(remaining);
       if (remaining <= 0 && !autoStopCalledRef.current) {
         autoStopCalledRef.current = true;
         stopStreaming();
       }
-    }, 1000);
-    return () => clearInterval(interval);
+    };
+    const timeout = window.setTimeout(updateRemaining, 0);
+    const interval = window.setInterval(updateRemaining, 1000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
   }, [session, stopStreaming]);
 
   const startStreaming = useCallback(async () => {
@@ -114,11 +119,12 @@ export default function CapturePage({
 
     await startCapture();
     await connect({
+      sessionId,
       profanityFilter: session?.profanityFilter ?? true,
       keywords: activeKeyterms,
     });
     updateSession({ status: "live", startedAt: Date.now() });
-  }, [startCapture, connect, updateSession, session?.profanityFilter, keyterms, resetSequence]);
+  }, [startCapture, connect, updateSession, session?.profanityFilter, keyterms, resetSequence, sessionId]);
 
   const error = audioError || dgError;
 

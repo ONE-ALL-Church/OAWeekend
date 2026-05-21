@@ -107,7 +107,7 @@ export function CalendarToolbar({
             <path d="M12 1.5v2.5h-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M4 14.5v-2.5h2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          {isSyncing ? "Syncing..." : "Sync"}
+          {isSyncing ? "Syncing..." : "Sync PCO/Rock"}
         </button>
       )}
       {onAddWeek && (

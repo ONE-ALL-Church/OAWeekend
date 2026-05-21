@@ -39,6 +39,7 @@ interface DeepgramActions {
 }
 
 interface DeepgramConnectOptions {
+  sessionId: string;
   profanityFilter: boolean;
   keywords: string[];
 }
@@ -56,9 +57,6 @@ export function useDeepgram(): DeepgramState & DeepgramActions {
   const intentionalCloseRef = useRef(false);
   const connectOptionsRef = useRef<DeepgramConnectOptions | null>(null);
 
-  const maxBufferBytes =
-    AUDIO_BUFFER_MAX_SECONDS * DEEPGRAM_SAMPLE_RATE * 2; // 2 bytes per sample (int16)
-
   const onTranscript = useCallback(
     (callback: (t: DeepgramTranscript) => void) => {
       callbackRef.current = callback;
@@ -72,9 +70,21 @@ export function useDeepgram(): DeepgramState & DeepgramActions {
         setError(null);
 
         // Fetch temporary Deepgram token
-        const tokenRes = await fetch("/api/deepgram-token");
-        if (!tokenRes.ok) throw new Error("Failed to get Deepgram token");
-        const { key } = await tokenRes.json();
+        const tokenRes = await fetch("/api/deepgram-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sessionId: options.sessionId }),
+        });
+        const tokenData = await tokenRes.json().catch(() => null);
+        if (!tokenRes.ok) {
+          throw new Error(
+            tokenData?.error || "Failed to get Deepgram token"
+          );
+        }
+        const token = tokenData?.token;
+        if (!token) throw new Error("Deepgram token response missing token");
 
         // Build WebSocket URL with params
         const params = new URLSearchParams({
@@ -94,7 +104,7 @@ export function useDeepgram(): DeepgramState & DeepgramActions {
         }
 
         const wsUrl = `wss://api.deepgram.com/v1/listen?${params}`;
-        const ws = new WebSocket(wsUrl, ["token", key]);
+        const ws = new WebSocket(wsUrl, ["bearer", token]);
         wsRef.current = ws;
 
         ws.onopen = () => {
@@ -163,7 +173,7 @@ export function useDeepgram(): DeepgramState & DeepgramActions {
         setError(message);
       }
     },
-    [maxBufferBytes]
+    []
   );
 
   const connect = useCallback(
@@ -198,6 +208,8 @@ export function useDeepgram(): DeepgramState & DeepgramActions {
 
   const sendAudio = useCallback(
     (pcm: ArrayBuffer) => {
+      const maxBufferBytes = AUDIO_BUFFER_MAX_SECONDS * DEEPGRAM_SAMPLE_RATE * 2;
+
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(pcm);
       } else {
@@ -215,7 +227,7 @@ export function useDeepgram(): DeepgramState & DeepgramActions {
         }
       }
     },
-    [maxBufferBytes]
+    []
   );
 
   // Cleanup on unmount

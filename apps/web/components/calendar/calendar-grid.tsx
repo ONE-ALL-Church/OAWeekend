@@ -14,7 +14,10 @@ import type { RockEventOccurrence, CategorizedWeekEvents } from "@/hooks/use-roc
 import { CalendarSectionHeader } from "./calendar-section-header";
 import { CalendarCell } from "./calendar-cell";
 import { CellEditor } from "./cell-editor";
-import type { CalendarFieldType } from "@oaweekend/shared";
+import {
+  isCalendarSystemRowSlug,
+  type CalendarFieldType,
+} from "@oaweekend/shared";
 
 interface CalendarGridProps {
   sections: CalendarSectionWithRows[];
@@ -442,8 +445,9 @@ function RowBlock({
     ? "border-b-2 border-b-oa-stone-200"
     : "border-b border-b-oa-stone-200/50";
 
-  // A row with a campusId is always a PC-synced sub-row — never editable
-  const isRowSyncedFromPC = !!(row as Record<string, unknown>).campusId;
+  // PCO/Rock managed rows are source-of-truth fields, even before an entry exists.
+  const isSystemManagedRow =
+    isCalendarSystemRowSlug(row.slug) || !!(row as Record<string, unknown>).campusId;
 
   return (
     <>
@@ -460,7 +464,10 @@ function RowBlock({
       {weeks.map((week) => {
         const entry = entryMap.get(`${week.id}:${row.id}`);
         const entrySource = (entry as Record<string, unknown> | undefined)?.source as string | undefined;
-        const isSyncedFromPC = isRowSyncedFromPC || entrySource === "planning-center" || entrySource === "rock";
+        const isSyncedFromPC =
+          isSystemManagedRow ||
+          entrySource === "planning-center" ||
+          entrySource === "rock";
         const tint = seriesTintByWeek?.get(week.weekStart);
 
         return (

@@ -169,45 +169,7 @@ function FieldEditor({
     }
     case "tagList": {
       const tags: string[] = (parsed?.tags as string[]) ?? [];
-      const [newTag, setNewTag] = useState("");
-      return (
-        <div>
-          <div className="flex flex-wrap gap-1 mb-2">
-            {tags.map((tag, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[10px] text-[11px] font-semibold bg-oa-yellow-500/15 text-oa-yellow-600"
-              >
-                {tag}
-                <button
-                  onClick={() => {
-                    const updated = tags.filter((_, idx) => idx !== i);
-                    onChange(JSON.stringify({ tags: updated }));
-                  }}
-                  className="text-oa-yellow-600/50 hover:text-oa-yellow-600 ml-0.5"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newTag}
-              onChange={(e) => setNewTag(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newTag.trim()) {
-                  onChange(JSON.stringify({ tags: [...tags, newTag.trim()] }));
-                  setNewTag("");
-                }
-              }}
-              className="flex-1 px-3 py-2 rounded-[--radius-input] border border-oa-stone-200 text-sm focus-visible:outline-2 focus-visible:outline-oa-yellow-500 focus-visible:outline-offset-2"
-              placeholder="Add tag and press Enter..."
-            />
-          </div>
-        </div>
-      );
+      return <TagListEditor tags={tags} onChange={onChange} />;
     }
     case "boolean": {
       const value = (parsed?.value as boolean) ?? false;
@@ -228,55 +190,7 @@ function FieldEditor({
     case "personPicker": {
       // Simple name-based input for MVP
       const people: Array<{ name: string; initials: string; rockPersonId: string | null }> = (parsed?.people as Array<{ name: string; initials: string; rockPersonId: string | null }>) ?? [];
-      const [newName, setNewName] = useState("");
-      return (
-        <div>
-          <div className="flex flex-wrap gap-1 mb-2">
-            {people.map((p, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-oa-sand-100/50 border border-oa-stone-200/50 text-xs font-medium"
-              >
-                <span className="w-5 h-5 rounded-full bg-oa-yellow-500 flex items-center justify-center text-[9px] font-bold text-oa-black-900">
-                  {p.initials}
-                </span>
-                {p.name}
-                <button
-                  onClick={() => {
-                    const updated = people.filter((_, idx) => idx !== i);
-                    onChange(JSON.stringify({ people: updated }));
-                  }}
-                  className="text-oa-stone-300 hover:text-oa-black-700 ml-0.5"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newName.trim()) {
-                  const name = newName.trim();
-                  const parts = name.split(" ");
-                  const initials =
-                    parts.length >= 2
-                      ? (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
-                      : name.slice(0, 2).toUpperCase();
-                  const updated = [...people, { name, initials, rockPersonId: null }];
-                  onChange(JSON.stringify({ people: updated }));
-                  setNewName("");
-                }
-              }}
-              className="flex-1 px-3 py-2 rounded-[--radius-input] border border-oa-stone-200 text-sm focus-visible:outline-2 focus-visible:outline-oa-yellow-500 focus-visible:outline-offset-2"
-              placeholder="Type name and press Enter..."
-            />
-          </div>
-        </div>
-      );
+      return <PersonPickerEditor people={people} onChange={onChange} />;
     }
     default: {
       // Fallback: plain text editor for richText, seriesPicker, campusPicker
@@ -293,6 +207,114 @@ function FieldEditor({
       );
     }
   }
+}
+
+function TagListEditor({
+  tags,
+  onChange,
+}: {
+  tags: string[];
+  onChange: (c: string) => void;
+}) {
+  const [newTag, setNewTag] = useState("");
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1 mb-2">
+        {tags.map((tag, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[10px] text-[11px] font-semibold bg-oa-yellow-500/15 text-oa-yellow-600"
+          >
+            {tag}
+            <button
+              onClick={() => {
+                const updated = tags.filter((_, idx) => idx !== i);
+                onChange(JSON.stringify({ tags: updated }));
+              }}
+              className="text-oa-yellow-600/50 hover:text-oa-yellow-600 ml-0.5"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newTag}
+          onChange={(e) => setNewTag(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && newTag.trim()) {
+              onChange(JSON.stringify({ tags: [...tags, newTag.trim()] }));
+              setNewTag("");
+            }
+          }}
+          className="flex-1 px-3 py-2 rounded-[--radius-input] border border-oa-stone-200 text-sm focus-visible:outline-2 focus-visible:outline-oa-yellow-500 focus-visible:outline-offset-2"
+          placeholder="Add tag and press Enter..."
+        />
+      </div>
+    </div>
+  );
+}
+
+function PersonPickerEditor({
+  people,
+  onChange,
+}: {
+  people: Array<{ name: string; initials: string; rockPersonId: string | null }>;
+  onChange: (c: string) => void;
+}) {
+  const [newName, setNewName] = useState("");
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1 mb-2">
+        {people.map((p, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-oa-sand-100/50 border border-oa-stone-200/50 text-xs font-medium"
+          >
+            <span className="w-5 h-5 rounded-full bg-oa-yellow-500 flex items-center justify-center text-[9px] font-bold text-oa-black-900">
+              {p.initials}
+            </span>
+            {p.name}
+            <button
+              onClick={() => {
+                const updated = people.filter((_, idx) => idx !== i);
+                onChange(JSON.stringify({ people: updated }));
+              }}
+              className="text-oa-stone-300 hover:text-oa-black-700 ml-0.5"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && newName.trim()) {
+              const name = newName.trim();
+              const parts = name.split(" ");
+              const initials =
+                parts.length >= 2
+                  ? (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
+                  : name.slice(0, 2).toUpperCase();
+              const updated = [...people, { name, initials, rockPersonId: null }];
+              onChange(JSON.stringify({ people: updated }));
+              setNewName("");
+            }
+          }}
+          className="flex-1 px-3 py-2 rounded-[--radius-input] border border-oa-stone-200 text-sm focus-visible:outline-2 focus-visible:outline-oa-yellow-500 focus-visible:outline-offset-2"
+          placeholder="Type name and press Enter..."
+        />
+      </div>
+    </div>
+  );
 }
 
 function getDefaultContent(fieldType: CalendarFieldType): string {

@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
+import path from "node:path";
+
+const repoRoot = path.resolve(process.cwd(), "../..");
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: repoRoot,
+  },
   async headers() {
     return [
       {

@@ -81,6 +81,36 @@ export const PLANNING_CENTER_CAMPUS_LIST = [
   { key: "westCovina" as const, id: PLANNING_CENTER_CAMPUS_IDS.westCovina, name: "West Covina" },
 ] as const;
 
+export const CALENDAR_PLANNING_CENTER_ROW_SLUGS = [
+  "host",
+  "host-san-dimas",
+  "host-rancho",
+  "host-west-covina",
+  "worship-leader",
+  "worship-leader-san-dimas",
+  "worship-leader-rancho",
+  "worship-leader-west-covina",
+  "song-1",
+  "song-2",
+  "song-3",
+  "song-4",
+] as const;
+
+export const CALENDAR_ROCK_ROW_SLUGS = [
+  "series",
+  "sermon-title",
+  "speaker",
+] as const;
+
+export const CALENDAR_SYSTEM_ROW_SLUGS = [
+  ...CALENDAR_PLANNING_CENTER_ROW_SLUGS,
+  ...CALENDAR_ROCK_ROW_SLUGS,
+] as const;
+
+export function isCalendarSystemRowSlug(slug: string) {
+  return (CALENDAR_SYSTEM_ROW_SLUGS as readonly string[]).includes(slug);
+}
+
 export const CALENDAR_DEFAULT_SECTIONS = [
   { name: "Service Planning", slug: "service-planning", color: "#272728", sortOrder: 0 },
   { name: "Events & Campaigns", slug: "events-campaigns", color: "#6873B3", sortOrder: 1 },
