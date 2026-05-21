@@ -9,6 +9,15 @@ const PCO_WEB_BASE_URL =
 const PCO_CLIENT_ID = process.env.PLANNING_CENTER_CLIENT_ID;
 const PCO_CLIENT_SECRET = process.env.PLANNING_CENTER_CLIENT_SECRET;
 
+class PlanningCenterRequestError extends Error {
+  constructor(
+    readonly status: number,
+    body: string,
+  ) {
+    super(`Planning Center request failed (${status}): ${body}`);
+  }
+}
+
 const SERVICE_TYPE_IDS = {
   sanDimas: 235,
   ranchoCucamonga: 228631,
@@ -162,6 +171,33 @@ export interface WeekendPlanSummary {
   serviceTimes: string[];
 }
 
+export type PlanningCenterPlanSearchKind =
+  | "empty"
+  | "week"
+  | "planId"
+  | "unsupported";
+
+export interface PlanningCenterPlanSearchMatch {
+  campusName: string;
+  serviceTypeId: number;
+  planId: string;
+  planUrl: string;
+  weekStart: string | null;
+  dates: string | null;
+  seriesTitle: string | null;
+  planTitle: string | null;
+  sortDate: string | null;
+}
+
+export interface PlanningCenterPlanSearchResult {
+  input: string;
+  kind: PlanningCenterPlanSearchKind;
+  weekStart: string | null;
+  planId: string | null;
+  matches: PlanningCenterPlanSearchMatch[];
+  campusErrors: Array<{ campusName: string; message: string }>;
+}
+
 function assertPlanningCenterConfig() {
   if (!PCO_CLIENT_ID || !PCO_CLIENT_SECRET) {
     throw new Error("Planning Center credentials are not configured");
@@ -183,7 +219,7 @@ async function pcoFetch<T>(path: string, schema: z.ZodType<T>): Promise<T> {
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Planning Center request failed (${res.status}): ${body}`);
+    throw new PlanningCenterRequestError(res.status, body);
   }
 
   return schema.parse(await res.json());
@@ -193,6 +229,13 @@ async function listPlans(serviceTypeId: number, perPage = 25) {
   return pcoFetch(
     `/services/v2/service_types/${serviceTypeId}/plans?per_page=${perPage}&order=-sort_date`,
     z.object({ data: z.array(planSchema) }),
+  );
+}
+
+async function getPlan(serviceTypeId: number, planId: string) {
+  return pcoFetch(
+    `/services/v2/service_types/${serviceTypeId}/plans/${planId}`,
+    z.object({ data: planSchema }),
   );
 }
 
@@ -233,6 +276,64 @@ function toPacificDateKey(iso: string | null | undefined) {
     month: "2-digit",
     day: "2-digit",
   }).format(d);
+}
+
+function isValidDateKey(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === dateKey;
+}
+
+function toDateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getSaturdayWeekStartFromDateKey(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  const day = date.getUTCDay();
+  const daysSinceSaturday = (day + 1) % 7;
+  date.setUTCDate(date.getUTCDate() - daysSinceSaturday);
+  return toDateKey(date);
+}
+
+function extractDateKey(input: string) {
+  const isoMatch = input.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  if (isoMatch?.[1] && isValidDateKey(isoMatch[1])) {
+    return isoMatch[1];
+  }
+
+  const slashMatch = input.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (!slashMatch) return null;
+
+  const month = slashMatch[1].padStart(2, "0");
+  const day = slashMatch[2].padStart(2, "0");
+  const dateKey = `${slashMatch[3]}-${month}-${day}`;
+  return isValidDateKey(dateKey) ? dateKey : null;
+}
+
+function extractPlanId(input: string) {
+  const urlMatch = input.match(/\/plans\/(\d+)/i);
+  if (urlMatch?.[1]) return urlMatch[1];
+
+  const numericInput = input.trim();
+  return /^\d{5,}$/.test(numericInput) ? numericInput : null;
+}
+
+function toPlanSearchMatch(
+  campus: (typeof PLANNING_CENTER_CAMPUSES)[number],
+  plan: PlanningCenterPlan,
+): PlanningCenterPlanSearchMatch {
+  const sortDate = toPacificDateKey(plan.attributes.sort_date);
+  return {
+    campusName: campus.campusName,
+    serviceTypeId: campus.serviceTypeId,
+    planId: plan.id,
+    planUrl: getPlanUrl(plan.id),
+    weekStart: sortDate ? getSaturdayWeekStartFromDateKey(sortDate) : null,
+    dates: plan.attributes.dates ?? null,
+    seriesTitle: plan.attributes.series_title?.trim() ?? null,
+    planTitle: plan.attributes.title?.trim() ?? null,
+    sortDate,
+  };
 }
 
 function getSundayKey(weekStart: string) {
@@ -404,6 +505,87 @@ export function extractWeekNumber(title: string | null | undefined) {
   if (!title) return null;
   const match = title.match(/week\s+(\d+)/i);
   return match ? Number(match[1]) : null;
+}
+
+export async function searchPlanningCenterPlans(
+  input: string,
+): Promise<PlanningCenterPlanSearchResult> {
+  const normalizedInput = input.trim();
+  if (!normalizedInput) {
+    return {
+      input: normalizedInput,
+      kind: "empty",
+      weekStart: null,
+      planId: null,
+      matches: [],
+      campusErrors: [],
+    };
+  }
+
+  const planId = extractPlanId(normalizedInput);
+  if (planId) {
+    const campusResults = await Promise.allSettled(
+      PLANNING_CENTER_CAMPUSES.map(async (campus) => ({
+        campus,
+        plan: (await getPlan(campus.serviceTypeId, planId)).data,
+      })),
+    );
+    const matches: PlanningCenterPlanSearchMatch[] = [];
+    const campusErrors: PlanningCenterPlanSearchResult["campusErrors"] = [];
+
+    for (const [index, result] of campusResults.entries()) {
+      const campus = PLANNING_CENTER_CAMPUSES[index];
+      if (result.status === "rejected") {
+        if (
+          result.reason instanceof PlanningCenterRequestError &&
+          result.reason.status === 404
+        ) {
+          continue;
+        }
+
+        campusErrors.push({
+          campusName: campus.campusName,
+          message:
+            result.reason instanceof Error
+              ? result.reason.message
+              : "Planning Center lookup failed",
+        });
+        continue;
+      }
+
+      matches.push(toPlanSearchMatch(result.value.campus, result.value.plan));
+    }
+
+    return {
+      input: normalizedInput,
+      kind: "planId",
+      weekStart: matches[0]?.weekStart ?? null,
+      planId,
+      matches,
+      campusErrors,
+    };
+  }
+
+  const dateKey = extractDateKey(normalizedInput);
+  if (dateKey) {
+    return {
+      input: normalizedInput,
+      kind: "week",
+      weekStart: getSaturdayWeekStartFromDateKey(dateKey),
+      planId: null,
+      matches: [],
+      campusErrors: [],
+    };
+  }
+
+  return {
+    input: normalizedInput,
+    kind: "unsupported",
+    weekStart: null,
+    planId: null,
+    matches: [],
+    campusErrors: [],
+  };
 }
 
 async function buildWeekendPlanSummary(

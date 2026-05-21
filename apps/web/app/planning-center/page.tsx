@@ -1,13 +1,45 @@
 import Link from "next/link";
+import {
+  searchPlanningCenterPlans,
+  type PlanningCenterPlanSearchResult,
+} from "@/lib/planning-center";
 
 export const dynamic = "force-dynamic";
 
 const WEEK_COUNT = 16;
 const PAST_WEEK_COUNT = 4;
 
-export default function PlanningCenterPage() {
+interface PageProps {
+  searchParams: Promise<{ q?: string }>;
+}
+
+type SearchState =
+  | { result: PlanningCenterPlanSearchResult; error: null }
+  | { result: null; error: string };
+
+export default async function PlanningCenterPage({ searchParams }: PageProps) {
+  const { q } = await searchParams;
+  const query = q?.trim() ?? "";
   const weeks = getRollingWeekendWeeks();
   const currentWeek = weeks.find((week) => week.isCurrent) ?? weeks[PAST_WEEK_COUNT];
+  let searchState: SearchState | null = null;
+
+  if (query) {
+    try {
+      searchState = {
+        result: await searchPlanningCenterPlans(query),
+        error: null,
+      };
+    } catch (error) {
+      searchState = {
+        result: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Planning Center search failed",
+      };
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f3ea] text-oa-black-900">
@@ -60,6 +92,56 @@ export default function PlanningCenterPage() {
           />
         </section>
 
+        <section className="mb-6 rounded-[--radius-card] border border-oa-stone-200 bg-oa-white shadow-[--shadow-card]">
+          <div className="border-b border-oa-stone-200/60 px-5 py-4">
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-oa-stone-300">
+              Service plan search
+            </div>
+            <h2 className="mt-1 text-2xl font-black tracking-tight">
+              Find a Planning Center plan
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-oa-black-700">
+              Search by weekend date, numeric plan ID, or Planning Center plan
+              URL. Results stay read-only and link into the wrapper.
+            </p>
+          </div>
+          <div className="px-5 py-5">
+            <form
+              action="/planning-center"
+              className="flex flex-col gap-3 md:flex-row"
+            >
+              <label className="sr-only" htmlFor="planning-center-search">
+                Planning Center search
+              </label>
+              <input
+                id="planning-center-search"
+                name="q"
+                type="search"
+                defaultValue={query}
+                placeholder="2026-05-23, 5/23/2026, 87349503, or a Planning Center plan URL"
+                className="min-h-12 flex-1 rounded-[--radius-button] border border-oa-stone-200 bg-[#fffdf8] px-4 text-sm font-semibold outline-none transition-colors duration-[220ms] placeholder:text-oa-stone-300 focus:border-oa-black-900"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="rounded-[--radius-button] bg-oa-black-900 px-5 py-3 text-sm font-bold text-oa-white hover:bg-oa-black-700"
+                >
+                  Search
+                </button>
+                {query ? (
+                  <Link
+                    href="/planning-center"
+                    className="rounded-[--radius-button] border border-oa-stone-200 bg-oa-white px-5 py-3 text-sm font-bold text-oa-black-700 hover:bg-oa-sand-100"
+                  >
+                    Clear
+                  </Link>
+                ) : null}
+              </div>
+            </form>
+            {searchState ? <SearchResults state={searchState} /> : null}
+          </div>
+        </section>
+
         <section className="rounded-[--radius-card] border border-oa-stone-200 bg-oa-white shadow-[--shadow-card]">
           <div className="border-b border-oa-stone-200/60 px-5 py-4">
             <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-oa-stone-300">
@@ -110,6 +192,121 @@ export default function PlanningCenterPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function SearchResults({ state }: { state: SearchState }) {
+  if (!state.result) {
+    return (
+      <div className="mt-4 rounded-[16px] border border-[#f0b4ab] bg-[#fff1ef] px-4 py-3 text-sm font-semibold text-[#9f1f13]">
+        {state.error}
+      </div>
+    );
+  }
+
+  const result = state.result;
+
+  if (result.kind === "week" && result.weekStart) {
+    return (
+      <div className="mt-4 rounded-[16px] border border-[#00A4C7]/25 bg-[#eefaff] px-4 py-4">
+        <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#007996]">
+          Weekend match
+        </div>
+        <div className="mt-1 text-lg font-black tracking-tight">
+          {formatWeekDate(result.weekStart)}
+        </div>
+        <div className="mt-1 text-sm text-oa-black-700">
+          Normalized from <span className="font-semibold">{result.input}</span>.
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href={`/planning-center/week/${result.weekStart}`}
+            className="rounded-[--radius-button] bg-oa-black-900 px-4 py-2 text-sm font-semibold text-oa-white hover:bg-oa-black-700"
+          >
+            Open wrapper
+          </Link>
+          <Link
+            href={`/calendar/week/${result.weekStart}`}
+            className="rounded-[--radius-button] border border-oa-stone-200 bg-oa-white px-4 py-2 text-sm font-semibold text-oa-black-700 hover:bg-oa-sand-100"
+          >
+            Open calendar week
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (result.kind === "planId") {
+    return (
+      <div className="mt-4 space-y-3">
+        {result.matches.length > 0 ? (
+          result.matches.map((match) => (
+            <div
+              key={`${match.campusName}-${match.planId}`}
+              className="rounded-[16px] border border-oa-stone-200 bg-[#fffdf8] px-4 py-4"
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-oa-stone-300">
+                    {match.campusName}
+                  </div>
+                  <div className="mt-1 text-lg font-black tracking-tight">
+                    PCO plan {match.planId}
+                  </div>
+                  <div className="mt-1 text-sm text-oa-black-700">
+                    {[match.seriesTitle, match.planTitle]
+                      .filter(Boolean)
+                      .join(" - ") || "No series or title"}
+                  </div>
+                  <div className="mt-1 text-xs font-semibold text-oa-stone-300">
+                    {[match.dates, match.sortDate].filter(Boolean).join(" / ") ||
+                      "No date metadata"}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {match.weekStart ? (
+                    <Link
+                      href={`/planning-center/week/${match.weekStart}?campus=${slugifyCampus(match.campusName)}`}
+                      className="rounded-[--radius-button] bg-oa-black-900 px-4 py-2 text-sm font-semibold text-oa-white hover:bg-oa-black-700"
+                    >
+                      Open wrapper
+                    </Link>
+                  ) : null}
+                  <a
+                    href={match.planUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-[--radius-button] border border-oa-stone-200 bg-oa-white px-4 py-2 text-sm font-semibold text-oa-black-700 hover:bg-oa-sand-100"
+                  >
+                    Open in Planning Center
+                  </a>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-[16px] border border-oa-stone-200 bg-[#fffdf8] px-4 py-4 text-sm text-oa-black-700">
+            No configured campus service type matched plan ID{" "}
+            <span className="font-semibold">{result.planId}</span>. Search
+            checks San Dimas, Rancho Cucamonga, and West Covina.
+          </div>
+        )}
+        {result.campusErrors.length > 0 ? (
+          <div className="rounded-[16px] border border-[#f0b4ab] bg-[#fff1ef] px-4 py-3 text-xs font-semibold text-[#9f1f13]">
+            {result.campusErrors.length} campus lookup
+            {result.campusErrors.length === 1 ? "" : "s"} failed during search.
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-[16px] border border-oa-stone-200 bg-[#fffdf8] px-4 py-3 text-sm text-oa-black-700">
+      Search accepts <span className="font-semibold">YYYY-MM-DD</span>,{" "}
+      <span className="font-semibold">M/D/YYYY</span>, a numeric Planning
+      Center plan ID, or a Planning Center plan URL.
+    </div>
   );
 }
 
@@ -177,4 +374,8 @@ function formatWeekDate(weekStart: string) {
     month: "short",
     day: "numeric",
   })} & ${sun.getDate()}`;
+}
+
+function slugifyCampus(campusName: string) {
+  return campusName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }

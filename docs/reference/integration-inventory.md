@@ -39,6 +39,7 @@ This page lists external systems and the source files that own their contracts.
 
 - Helper: `apps/web/lib/planning-center.ts`
 - Wrapper landing: `apps/web/app/planning-center/page.tsx`
+- Plan search helper: `searchPlanningCenterPlans`
 - Week drill-down: `apps/web/app/planning-center/week/[weekStart]/page.tsx`
 - Week prefill API: `apps/web/app/api/calendar/week/[weekStart]/prefill-planning-center/route.ts`
 - Person lookup API: `apps/web/app/api/calendar/person/[pcoPersonId]/route.ts`
