@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 // even if the env var is accidentally set.
 const DEV_AUTH_BYPASS =
   process.env.NODE_ENV !== "production" &&
-  process.env.DEV_AUTH_BYPASS === "true";
+  (process.env.DEV_AUTH_BYPASS === "true" ||
+    process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true");
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,12 +16,24 @@ export function proxy(request: NextRequest) {
   const isProtected =
     pathname.startsWith("/operator") ||
     pathname.startsWith("/capture") ||
+    pathname.startsWith("/calendar") ||
+    pathname.startsWith("/planning-center") ||
     pathname === "/api/deepgram-token" ||
+    pathname.startsWith("/api/calendar/") ||
     pathname.startsWith("/api/rock/");
 
   if (!isProtected) return NextResponse.next();
 
   if (DEV_AUTH_BYPASS) {
+    return NextResponse.next();
+  }
+
+  const cronSecret = process.env.CRON_SECRET;
+  if (
+    cronSecret &&
+    pathname.startsWith("/api/") &&
+    request.headers.get("authorization") === `Bearer ${cronSecret}`
+  ) {
     return NextResponse.next();
   }
 
@@ -42,7 +55,10 @@ export const config = {
   matcher: [
     "/operator/:path*",
     "/capture/:path*",
+    "/calendar/:path*",
+    "/planning-center/:path*",
     "/api/deepgram-token",
+    "/api/calendar/:path*",
     "/api/rock/:path*",
   ],
 };

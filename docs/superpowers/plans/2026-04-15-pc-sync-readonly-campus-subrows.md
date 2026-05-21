@@ -8,6 +8,8 @@
 
 **Tech Stack:** InstantDB (schema + admin SDK), Next.js App Router, React, TypeScript
 
+**Current status (2026-05-21):** Implemented and extended. Source-managed rows now include Planning Center and Rock (`source: "planning-center" | "rock"`), prefill overwrites and clears authoritative source rows, hosts/worship leaders are campus sub-rows, and `/planning-center/week/[weekStart]` exposes the fuller read-only Planning Center service plan. Current InstantDB CLI commands are `npx instant-cli push schema --yes` and `npx instant-cli push perms --yes`.
+
 ---
 
 ### Task 1: Add `source` field to `calendarEntries` schema

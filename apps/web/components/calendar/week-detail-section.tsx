@@ -125,6 +125,7 @@ export function WeekDetailSection({
               const entry = entries.get(row.id);
               const content = entry?.content ?? "";
               const regularSource = (entry as Record<string, unknown> | undefined)?.source as string | undefined;
+              const sourceBadge = getSourceBadge(row.slug, regularSource);
               const isSyncedFromPC =
                 isCalendarSystemRowSlug(row.slug) ||
                 regularSource === "planning-center" ||
@@ -145,9 +146,20 @@ export function WeekDetailSection({
                       fieldType={row.fieldType as CalendarFieldType}
                     />
                   </div>
-                  {isSyncedFromPC && content && content !== "{}" && (
-                    <span className="text-[9px] font-bold text-[#00A4C7]/60 ml-1 shrink-0" title="Synced from Planning Center">
-                      PC
+                  {isSyncedFromPC && sourceBadge && content && content !== "{}" && (
+                    <span
+                      className={`ml-1 shrink-0 text-[9px] font-bold ${
+                        sourceBadge === "R"
+                          ? "text-[#6873B3]/70"
+                          : "text-[#00A4C7]/60"
+                      }`}
+                      title={
+                        sourceBadge === "R"
+                          ? "Synced from Rock"
+                          : "Synced from Planning Center"
+                      }
+                    >
+                      {sourceBadge}
                     </span>
                   )}
                   {rowEditable && (
@@ -181,6 +193,16 @@ export function WeekDetailSection({
       )}
     </>
   );
+}
+
+function getSourceBadge(rowSlug: string, source?: string) {
+  if (source === "rock" || ["series", "sermon-title", "speaker"].includes(rowSlug)) {
+    return "R";
+  }
+  if (source === "planning-center" || isCalendarSystemRowSlug(rowSlug)) {
+    return "PC";
+  }
+  return null;
 }
 
 function FieldValueDisplay({

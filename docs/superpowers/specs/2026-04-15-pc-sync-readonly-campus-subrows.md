@@ -1,20 +1,20 @@
 # Planning Center Sync: Read-Only Entries & Campus Sub-Rows
 
 **Date:** 2026-04-15
-**Status:** Draft
+**Status:** Implemented
 
 ## Overview
 
-Calendar entries synced from Planning Center should be read-only. Host and Worship Leader rows should display as campus sub-rows (one per campus) grouped under a parent header. Songs continue to pull from San Dimas only.
+Calendar entries synced from Planning Center and Rock are source-of-truth fields and should be read-only in the interface. Host and Worship Leader rows display as campus sub-rows (one per campus) grouped under a parent header. Songs continue to pull from San Dimas only. A separate Planning Center drill-down page exposes the fuller service plan data without making those source rows editable.
 
 ## Data Model Changes
 
 ### `calendarEntries` — new `source` field
 
-- Type: `"manual" | "planning-center"`
+- Type: `"manual" | "planning-center" | "rock"`
 - Default: `"manual"`
-- Set by the prefill endpoint when it creates or updates an entry
-- UI uses this to determine editability: `source === "planning-center"` → read-only
+- Set by the prefill endpoint when it creates or updates source rows
+- UI uses this, plus system row slugs, to determine editability: Planning Center/Rock-managed rows are read-only
 - Entries without a `source` field (legacy) are treated as `"manual"`
 
 ### `calendarRows` — new fields
@@ -40,13 +40,13 @@ Host and Worship Leader rows are restructured from single rows into parent + sub
   - `worship-leader-rancho` — `campusId: "228631"`, `parentRowId: <worship-leader-row-id>`
   - `worship-leader-west-covina` — `campusId: "962810"`, `parentRowId: <worship-leader-row-id>`
 
-All other rows (Songs 1-4, Series, Sermon Title, Service Times) remain single rows unchanged.
+Songs 1-4, Series, Sermon Title, and Speaker remain single source rows. Series/Sermon Title prefer Rock data and fall back to Planning Center when Rock has no value. Speaker comes from Rock only.
 
 ## Planning Center Prefill Changes
 
 ### Entry source tracking
 
-All entries created or updated by the prefill endpoint get `source: "planning-center"`.
+Planning Center rows get `source: "planning-center"`. Rock rows get `source: "rock"`.
 
 ### Per-campus entries for Host/Worship Leader
 
@@ -64,18 +64,29 @@ All entries created or updated by the prefill endpoint get `source: "planning-ce
 
 ### Overwrite behavior
 
-Unchanged — prefill still skips cells that already have meaningful content.
+Source rows are authoritative. Every prefill overwrites Planning Center/Rock-managed rows and clears stale source values when upstream data is missing. Manual rows are not changed by the prefill.
+
+### Additional source data exposed
+
+The Planning Center integration now pulls:
+
+- Full service order items, including item type, sequence, duration, notes, song links, and key names
+- Active team assignments by role
+- All plan times, plus filtered service-time labels
+- Planning Center source URLs for plans and items
+
+This data powers `/planning-center/week/[weekStart]` and is the foundation for the future Planning Center wrapper.
 
 ## UI Changes
 
 ### Read-only enforcement
 
-- `calendar-cell.tsx`: Check `entry.source === "planning-center"`. If true:
+- `calendar-cell.tsx`: Check the row slug and `entry.source`. If source-managed:
   - Disable click handler
   - Remove hover/cursor-pointer styles
-  - Show a subtle lock icon or Planning Center indicator
+  - Show a subtle Planning Center or Rock indicator where appropriate
 - `week-detail-section.tsx`: Same check, disable edit button
-- This is independent of role-based editability — a PC-synced entry is read-only even if the user has edit access to the section
+- This is independent of role-based editability. A Planning Center/Rock source row is read-only even if the user has edit access to the section.
 
 ### Sub-row rendering
 
@@ -98,6 +109,6 @@ Unchanged — prefill still skips cells that already have meaningful content.
 
 ## Out of Scope
 
-- Making empty campus sub-rows manually editable (all sub-rows are read-only when populated by PC)
+- Making source-managed campus sub-rows manually editable
 - Campus sub-rows for any rows other than Host and Worship Leader
-- Backfill migration of existing data
+- Editing Planning Center plans from inside OA Weekend
