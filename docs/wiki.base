@@ -1,0 +1,67 @@
+filters:
+  and:
+    - file.hasProperty("type")
+properties:
+  file.name:
+    displayName: Page
+  type:
+    displayName: Type
+  status:
+    displayName: Status
+  last_reviewed:
+    displayName: Reviewed
+  file.folder:
+    displayName: Folder
+views:
+  - type: table
+    name: All
+    order:
+      - file.name
+      - type
+      - status
+      - last_reviewed
+      - file.folder
+    sort:
+      - property: type
+      - property: file.name
+  - type: table
+    name: By type
+    order:
+      - type
+      - file.name
+      - status
+      - last_reviewed
+    sort:
+      - property: type
+      - property: file.name
+  - type: table
+    name: Drafts
+    filters:
+      and:
+        - status == "draft"
+    order:
+      - file.name
+      - type
+      - last_reviewed
+  - type: table
+    name: Reference
+    filters:
+      and:
+        - type == "reference"
+    order:
+      - file.name
+      - status
+      - last_reviewed
+    sort:
+      - property: file.name
+  - type: table
+    name: How-to
+    filters:
+      and:
+        - type == "how-to"
+    order:
+      - file.name
+      - status
+      - last_reviewed
+    sort:
+      - property: file.name
