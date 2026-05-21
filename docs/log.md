@@ -64,3 +64,9 @@ Format:
 - Touched: [Planning Center Wrapper](planning-center-wrapper.md), this file
 - Notes: Removed redundant service-row metadata from `/planning-center/week/[weekStart]`: generic `ITEM` and `HEADER` pills no longer render, header rows no longer show empty duration pills, and repeated `Planning Center link` summary copy was removed while keeping the expanded Planning Center deep link.
 - Validation: `git diff --check`, docs markdown link check, `PATH=/usr/local/bin:$PATH pnpm --filter web lint` (existing warnings only), `PATH=/usr/local/bin:$PATH pnpm --filter web build`, and `PATH=/usr/local/bin:$PATH pnpm test`. Local visual smoke captured `/tmp/pco-week-row-cleanup-804.png` from `http://localhost:3001/planning-center/week/2026-03-21?campus=san-dimas`.
+
+## [2026-05-21] ingest | Planning Center header sections
+
+- Touched: [Planning Center Wrapper](planning-center-wrapper.md), this file
+- Notes: Changed `/planning-center/week/[weekStart]` service order from flat rows into collapsible sections keyed by Planning Center header rows. Header rows no longer show sequence numbers and instead control the visibility of their underlying service items.
+- Validation: `git diff --check`, docs markdown link check, `PATH=/usr/local/bin:$PATH pnpm --filter web lint` (existing warnings only), `PATH=/usr/local/bin:$PATH pnpm --filter web build`, and `PATH=/usr/local/bin:$PATH pnpm test`. Local visual smoke captured `/tmp/pco-week-header-sections-rancho-1025.png` from `http://localhost:3001/planning-center/week/2026-03-21?campus=rancho-cucamonga`.
