@@ -636,6 +636,7 @@ function SongsBlock({
 
 function ServiceItemPanel({ item }: { item: PlanningCenterServiceItem }) {
   const isSong = item.itemType === "song";
+  const shouldShowDuration = item.itemType !== "header";
 
   return (
     <details
@@ -654,15 +655,9 @@ function ServiceItemPanel({ item }: { item: PlanningCenterServiceItem }) {
             <span className="text-base font-black leading-6 text-oa-black-900">
               {item.title || "Untitled"}
             </span>
-            {item.itemType ? (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${
-                  item.itemType === "song"
-                    ? "bg-oa-yellow-500/15 text-oa-yellow-600"
-                    : "bg-oa-stone-100 text-oa-black-700"
-                }`}
-              >
-                {item.itemType}
+            {isSong ? (
+              <span className="rounded-full bg-oa-yellow-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-oa-yellow-600">
+                Song
               </span>
             ) : null}
             {item.keyName ? (
@@ -674,13 +669,14 @@ function ServiceItemPanel({ item }: { item: PlanningCenterServiceItem }) {
           <div className="mt-1 flex flex-wrap gap-2 text-xs font-semibold text-oa-black-700">
             {item.song?.songLeader ? <span>By {item.song.songLeader}</span> : null}
             {item.notes.length > 0 ? <span>{item.notes.length} note(s)</span> : null}
-            {item.sourceUrl ? <span>Planning Center link</span> : null}
           </div>
         </div>
         <div className="flex items-start justify-between gap-3 text-xs font-semibold text-oa-stone-300 md:justify-end">
-          <span className="rounded-full border border-oa-stone-200 bg-oa-white px-2.5 py-1 text-oa-black-700">
-            {formatDuration(item.lengthSeconds)}
-          </span>
+          {shouldShowDuration ? (
+            <span className="rounded-full border border-oa-stone-200 bg-oa-white px-2.5 py-1 text-oa-black-700">
+              {formatDuration(item.lengthSeconds)}
+            </span>
+          ) : null}
           <span className="text-oa-black-700 transition-transform duration-[220ms] group-open:rotate-90">
             →
           </span>
