@@ -12,6 +12,7 @@ status: active
 
 OA Weekend has two Planning Center surfaces:
 
+- Wrapper landing: `/planning-center`
 - Calendar prefill: `POST /api/calendar/week/[weekStart]/prefill-planning-center`
 - Read-only drill-down: `/planning-center/week/[weekStart]`
 
@@ -45,9 +46,15 @@ The prefill endpoint also verifies write access server-side:
 
 ## Next Wrapper Direction
 
-The next practical slice is to turn the read-only drill-down into a wrapper around the service plan:
+The current practical slice turns the read-only drill-down into the start of a wrapper around the service plan:
 
-- Add a week list or service-plan search entry point outside the calendar.
-- Add campus tabs and item-level detail panels for songs, notes, people, and times.
+- `/planning-center` lists a rolling weekend window outside the calendar.
+- `/planning-center/week/[weekStart]` uses campus tabs and item-level panels for service order, songs, notes, people, and times.
 - Add Planning Center deep links at every level.
 - Keep OA Weekend writes separate from Planning Center writes until there is an explicit edit workflow and audit trail.
+
+## Next Wrapper Direction
+
+- Add service-plan search by exact week, plan id, or Planning Center URL.
+- Add compare/diff views between Rock, Planning Center, and existing calendar source rows.
+- Add audit trails before any Planning Center write-back is considered.

@@ -31,6 +31,7 @@ status: active
 - [ ] Sermon search (full-text search on transcripts)
 - [x] Planning Center/Rock source-of-truth calendar prefill
 - [x] Read-only Planning Center service-plan drill-down
+- [x] Planning Center wrapper landing with campus drill-down tabs
 - [ ] Planning Center wrapper actions beyond read-only viewing
 
 ## Phase 3 — Real-Time Translation (Future)
