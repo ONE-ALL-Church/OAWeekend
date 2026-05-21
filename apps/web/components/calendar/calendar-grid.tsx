@@ -596,7 +596,7 @@ function RockEventsRow({
         return (
           <div
             key={`rock-${category}-${week.id}`}
-            className={`px-1.5 py-1.5 text-xs ${borderClass} border-r border-r-oa-stone-200/20 flex flex-col items-center justify-center gap-1 min-h-[40px]`}
+            className={`min-w-0 px-1.5 py-1.5 text-xs ${borderClass} border-r border-r-oa-stone-200/20 flex flex-col items-stretch justify-center gap-1 min-h-[40px]`}
             style={{ backgroundColor: tint ?? "var(--color-oa-white)" }}
           >
             {isLoading ? (
@@ -645,17 +645,17 @@ function EventPill({ event }: { event: RockEventOccurrence }) {
 
   return (
     <div
-      className="relative"
+      className="relative flex w-full min-w-0 justify-center"
       onMouseEnter={() => setShowCard(true)}
       onMouseLeave={() => setShowCard(false)}
     >
-      <span className="inline-flex px-2 py-0.5 rounded-[10px] text-[10px] font-semibold bg-[#6873B3]/12 text-[#6873B3] text-center leading-tight max-w-full truncate cursor-default">
+      <span className="inline-block max-w-full truncate rounded-[10px] bg-[#6873B3]/12 px-2 py-0.5 text-center text-[10px] font-semibold leading-tight text-[#6873B3] cursor-default">
         {event.name}
       </span>
 
       {/* Rich hover card */}
       {showCard && (
-        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 rounded-[--radius-card] bg-oa-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-oa-stone-200 overflow-hidden pointer-events-auto">
+        <div className="absolute z-50 bottom-full left-1/2 mb-2 max-h-[min(520px,calc(100vh-96px))] w-[min(320px,calc(100vw-32px))] -translate-x-1/2 overflow-x-hidden overflow-y-auto rounded-[--radius-card] bg-oa-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-oa-stone-200 pointer-events-auto">
           {/* Photo banner */}
           {event.photoUrl && (
             <div className="h-32 w-full bg-oa-stone-100 overflow-hidden relative">
@@ -747,7 +747,7 @@ function EventPill({ event }: { event: RockEventOccurrence }) {
                     href={cta.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex px-2.5 py-1 rounded-[--radius-button] text-[10px] font-semibold bg-[#6873B3] text-white hover:bg-[#5a64a0] transition-colors"
+                    className="inline-flex max-w-full rounded-[--radius-button] bg-[#6873B3] px-2.5 py-1 text-left text-[10px] font-semibold leading-snug text-white transition-colors hover:bg-[#5a64a0] break-words whitespace-normal"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {cta.label}

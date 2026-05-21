@@ -46,3 +46,9 @@ Format:
 - Touched: [Calendar UI UX Review](explanation/calendar-ui-ux-review.md), this file
 - Notes: Reviewed `/calendar` after browser feedback that the far-left `Date` column scrolled away. Implemented sticky row-header behavior for the month/date headers, section headers, parent rows, normal row labels, and Rock event row labels. Raised the toolbar above grid sticky layers and improved toolbar wrapping for narrower viewports.
 - Validation: `git diff --check`, docs markdown link check, `PATH=/usr/local/bin:$PATH pnpm --filter web lint` (existing warnings only), `PATH=/usr/local/bin:$PATH pnpm --filter web build`, and `PATH=/usr/local/bin:$PATH pnpm test`. Local HTTP smoke returned `HTTP 200` for `/calendar`; fully populated local grid render requires real InstantDB auth, so sticky behavior was verified by code-level class audit and production build/type checks.
+
+## [2026-05-21] ingest | Calendar event pill overflow fix
+
+- Touched: [Calendar UI UX Review](explanation/calendar-ui-ux-review.md), this file
+- Notes: Fixed `/calendar` Rock event pills so long event names truncate inside the week cell instead of widening or bleeding across neighboring columns. Hover-card action links now wrap inside the card, and the card is constrained to the viewport height/width.
+- Validation: `git diff --check`, docs markdown link check, `PATH=/usr/local/bin:$PATH pnpm --filter web lint` (existing warnings only), `PATH=/usr/local/bin:$PATH pnpm --filter web build`, and `PATH=/usr/local/bin:$PATH pnpm test`. Local HTTP smoke returned `HTTP 200` for `/calendar`.
