@@ -21,7 +21,9 @@
 - [ ] Raspberry Pi + AVIO USB as dedicated capture devices
 - [ ] Add Supabase or similar for analytics queries
 - [ ] Sermon search (full-text search on transcripts)
-- [ ] Planning Center data sync
+- [x] Planning Center/Rock source-of-truth calendar prefill
+- [x] Read-only Planning Center service-plan drill-down
+- [ ] Planning Center wrapper actions beyond read-only viewing
 
 ## Phase 3 — Real-Time Translation (Future)
 

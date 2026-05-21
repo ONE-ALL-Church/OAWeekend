@@ -3,6 +3,9 @@ import { z } from "zod";
 const PCO_BASE_URL =
   process.env.PLANNING_CENTER_BASE_URL?.replace(/\/+$/, "") ??
   "https://api.planningcenteronline.com";
+const PCO_WEB_BASE_URL =
+  process.env.PLANNING_CENTER_WEB_BASE_URL?.replace(/\/+$/, "") ??
+  "https://services.planningcenteronline.com";
 const PCO_CLIENT_ID = process.env.PLANNING_CENTER_CLIENT_ID;
 const PCO_CLIENT_SECRET = process.env.PLANNING_CENTER_CLIENT_SECRET;
 
@@ -68,26 +71,6 @@ const itemSchema = z.object({
   }).optional(),
 });
 
-const itemNoteSchema = z.object({
-  id: z.string(),
-  attributes: z.object({
-    category_name: z.string().nullable().optional(),
-    content: z.string().nullable().optional(),
-  }),
-});
-
-const songSchema = z.object({
-  id: z.string(),
-  attributes: z.object({
-    title: z.string().nullable().optional(),
-    author: z.string().nullable().optional(),
-    ccli_number: z.union([z.string(), z.number()]).nullable().optional(),
-    copyright: z.string().nullable().optional(),
-    themes: z.string().nullable().optional(),
-    last_scheduled_short_dates: z.string().nullable().optional(),
-  }),
-});
-
 const teamMemberSchema = z.object({
   id: z.string(),
   attributes: z.object({
@@ -116,26 +99,64 @@ type PlanningCenterPlan = z.infer<typeof planSchema>;
 type PlanningCenterTeamMember = z.infer<typeof teamMemberSchema>;
 type PlanningCenterPlanTime = z.infer<typeof planTimeSchema>;
 
+export interface PlanningCenterItemNote {
+  categoryName: string | null;
+  content: string | null;
+}
+
+export interface PlanningCenterSongSummary {
+  title: string;
+  key: string | null;
+  author: string | null;
+  ccliNumber: string | null;
+  themes: string | null;
+  lastScheduled: string | null;
+  description: string | null;
+  lengthSeconds: number | null;
+  songLeader: string | null;
+  sourceUrl: string | null;
+}
+
+export interface PlanningCenterTeamAssignment extends PlanningCenterPerson {
+  role: string | null;
+  status: string | null;
+}
+
+export interface PlanningCenterPlanTimeSummary {
+  name: string | null;
+  startsAt: string | null;
+  timeType: string | null;
+  displayTime: string | null;
+}
+
+export interface PlanningCenterServiceItem {
+  id: string;
+  sequence: number | null;
+  title: string;
+  description: string | null;
+  itemType: string | null;
+  keyName: string | null;
+  lengthSeconds: number | null;
+  songId: string | null;
+  song: Omit<PlanningCenterSongSummary, "sourceUrl"> | null;
+  notes: PlanningCenterItemNote[];
+  sourceUrl: string | null;
+}
+
 export interface WeekendPlanSummary {
   campusName: string;
   serviceTypeId: number;
   planId: string;
+  planUrl: string;
   dates: string | null;
   seriesTitle: string | null;
   sermonTitle: string | null;
   weekLabel: string | null;
   totalLengthSeconds: number | null;
-  songs: Array<{
-    title: string;
-    key: string | null;
-    author: string | null;
-    ccliNumber: string | null;
-    themes: string | null;
-    lastScheduled: string | null;
-    description: string | null;
-    lengthSeconds: number | null;
-    songLeader: string | null;
-  }>;
+  songs: PlanningCenterSongSummary[];
+  serviceItems: PlanningCenterServiceItem[];
+  teamMembers: PlanningCenterTeamAssignment[];
+  planTimes: PlanningCenterPlanTimeSummary[];
   hosts: PlanningCenterPerson[];
   worshipLeaders: PlanningCenterPerson[];
   serviceTimes: string[];
@@ -230,12 +251,35 @@ function findPlanForWeek(plans: PlanningCenterPlan[], weekStart: string) {
   );
 }
 
-function uniqueSorted(values: Array<string | null | undefined>) {
-  const normalized = values
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value));
+function getPlanUrl(planId: string) {
+  return `${PCO_WEB_BASE_URL}/plans/${planId}`;
+}
 
-  return [...new Set(normalized)].sort((a, b) => a.localeCompare(b));
+function getPlanItemUrl(planId: string, itemId: string) {
+  return `${getPlanUrl(planId)}?item_id=${itemId}`;
+}
+
+function stringAttr(
+  record: Record<string, unknown> | undefined,
+  key: string,
+) {
+  const value = record?.[key];
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function ccliAttr(record: Record<string, unknown> | undefined) {
+  const value = record?.ccli_number;
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+function plainText(value: string | null | undefined) {
+  if (!value) return null;
+  const text = value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return text || null;
 }
 
 function isActiveAssignment(status: string | null | undefined) {
@@ -271,24 +315,73 @@ function pickPeopleByRole(
   });
 }
 
-function formatServiceTimeLabel(time: PlanningCenterPlanTime) {
-  const startsAt = time.attributes.starts_at;
-  if (!startsAt) return null;
+function buildTeamAssignments(
+  teamMembers: PlanningCenterTeamMember[],
+): PlanningCenterTeamAssignment[] {
+  return teamMembers.flatMap((member) => {
+    if (!isActiveAssignment(member.attributes.status)) return [];
+    const name = member.attributes.name?.trim();
+    if (!name) return [];
 
-  const displayTime = new Intl.DateTimeFormat("en-US", {
+    return [
+      {
+        name,
+        photoUrl: member.attributes.photo_thumbnail ?? null,
+        pcoPersonId: member.relationships?.person?.data?.id ?? null,
+        role: member.attributes.team_position_name?.trim() ?? null,
+        status: member.attributes.status ?? null,
+      },
+    ];
+  });
+}
+
+function formatPlanTimeDisplay(startsAt: string | null | undefined) {
+  if (!startsAt) return null;
+  return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(startsAt));
+}
+
+function buildServiceTimeCandidate(
+  time: PlanningCenterPlanTime,
+  namedOnly: boolean,
+) {
+  const startsAt = time.attributes.starts_at;
+  if (!startsAt) return null;
+
+  const displayTime = formatPlanTimeDisplay(startsAt);
+  if (!displayTime) return null;
 
   const name = time.attributes.name?.trim();
   if (name && /^service\s*#\d+/i.test(name)) {
-    return `${name} - ${displayTime}`;
+    return { label: `${name} - ${displayTime}`, startsAt };
   }
-  if (time.attributes.time_type === "service") {
-    return displayTime;
+  if (!namedOnly && time.attributes.time_type === "service") {
+    return { label: displayTime, startsAt };
   }
   return null;
+}
+
+function buildServiceTimes(planTimes: PlanningCenterPlanTime[]) {
+  const namedServiceTimes = planTimes
+    .map((time) => buildServiceTimeCandidate(time, true))
+    .filter((time): time is { label: string; startsAt: string } => Boolean(time));
+  const genericServiceTimes = planTimes
+    .map((time) => buildServiceTimeCandidate(time, false))
+    .filter((time): time is { label: string; startsAt: string } => Boolean(time));
+  const serviceTimes =
+    namedServiceTimes.length > 0 ? namedServiceTimes : genericServiceTimes;
+  const labels = new Set<string>();
+
+  return serviceTimes
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+    .flatMap((time) => {
+      if (labels.has(time.label)) return [];
+      labels.add(time.label);
+      return time.label;
+    });
 }
 
 function normalizeSermonTitle(title: string | null | undefined) {
@@ -340,37 +433,65 @@ async function buildWeekendPlanSummary(
     }
   }
 
-  const str = (v: unknown) => (typeof v === "string" ? v.trim() : null);
-
-  const songs = items
-    .filter((item) => item.attributes.item_type === "song")
+  const serviceItems = items
     .map((item) => {
       const songId = item.relationships?.song?.data?.id;
       const details = songId ? songDetailsById.get(songId) : undefined;
-
-      // Get "By" note (song leader) from item_notes
       const noteIds = item.relationships?.item_notes?.data ?? [];
-      let songLeader: string | null = null;
-      for (const nr of noteIds) {
-        const note = noteById.get(nr.id);
-        if (note?.category_name === "By" && note.content) {
-          songLeader = String(note.content).trim();
-          break;
-        }
-      }
+      const notes = noteIds
+        .map((nr) => {
+          const note = noteById.get(nr.id);
+          return {
+            categoryName: stringAttr(note, "category_name"),
+            content: plainText(stringAttr(note, "content")),
+          };
+        })
+        .filter((note) => note.categoryName || note.content);
+
+      const songLeader =
+        notes.find((note) => note.categoryName?.toLowerCase() === "by")
+          ?.content ?? null;
+      const title = item.attributes.title?.trim() ?? "";
+      const keyName = item.attributes.key_name?.trim() ?? null;
+      const description = plainText(item.attributes.description);
+      const lengthSeconds = item.attributes.length ?? null;
+      const song = songId
+        ? {
+            title,
+            key: keyName,
+            author: stringAttr(details, "author"),
+            ccliNumber: ccliAttr(details),
+            themes: stringAttr(details, "themes"),
+            lastScheduled: stringAttr(details, "last_scheduled_short_dates"),
+            description,
+            lengthSeconds,
+            songLeader,
+          }
+        : null;
 
       return {
-        title: item.attributes.title?.trim() ?? "",
-        key: item.attributes.key_name?.trim() ?? null,
-        author: str(details?.author) ?? null,
-        ccliNumber: details?.ccli_number != null ? String(details.ccli_number).trim() : null,
-        themes: str(details?.themes) ?? null,
-        lastScheduled: str(details?.last_scheduled_short_dates) ?? null,
-        description: item.attributes.description?.trim() ?? null,
-        lengthSeconds: item.attributes.length ?? null,
-        songLeader,
+        id: item.id,
+        sequence: item.attributes.sequence ?? null,
+        title,
+        description,
+        itemType: item.attributes.item_type?.trim() ?? null,
+        keyName,
+        lengthSeconds,
+        songId: songId ?? null,
+        song,
+        notes,
+        sourceUrl: getPlanItemUrl(plan.id, item.id),
       };
     })
+    .filter((item) => item.title || item.notes.length > 0)
+    .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+
+  const songs = serviceItems
+    .filter((item) => item.itemType === "song" && item.song)
+    .map((item) => ({
+      ...item.song!,
+      sourceUrl: item.sourceUrl,
+    }))
     .filter((song) => song.title);
 
   const hosts = pickPeopleByRole(teamMembers, (role) => /host/i.test(role));
@@ -378,21 +499,30 @@ async function buildWeekendPlanSummary(
     teamMembers,
     (role) => /worship leader/i.test(role),
   );
+  const teamAssignments = buildTeamAssignments(teamMembers);
+  const planTimeSummaries = planTimes.map((time) => ({
+    name: time.attributes.name?.trim() ?? null,
+    startsAt: time.attributes.starts_at ?? null,
+    timeType: time.attributes.time_type ?? null,
+    displayTime: formatPlanTimeDisplay(time.attributes.starts_at),
+  }));
 
-  const serviceTimes = uniqueSorted(
-    planTimes.map((time) => formatServiceTimeLabel(time)),
-  );
+  const serviceTimes = buildServiceTimes(planTimes);
 
   return {
     campusName,
     serviceTypeId,
     planId: plan.id,
+    planUrl: getPlanUrl(plan.id),
     dates: plan.attributes.dates ?? null,
     seriesTitle: plan.attributes.series_title?.trim() ?? null,
     sermonTitle: normalizeSermonTitle(plan.attributes.title),
     weekLabel: extractWeekLabel(plan.attributes.title),
     totalLengthSeconds: plan.attributes.total_length ?? null,
     songs,
+    serviceItems,
+    teamMembers: teamAssignments,
+    planTimes: planTimeSummaries,
     hosts,
     worshipLeaders,
     serviceTimes,

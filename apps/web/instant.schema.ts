@@ -18,7 +18,7 @@ const _schema = i.schema({
       status: i.string().indexed(),
       fontSize: i.number(),
       positionVertical: i.string(),
-      maxDurationMinutes: i.number(),
+      maxDurationMinutes: i.number().optional(),
       profanityFilter: i.boolean(),
       paused: i.boolean(),
     }),

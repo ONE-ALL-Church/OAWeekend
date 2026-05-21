@@ -15,6 +15,7 @@ export interface Session {
   status: SessionStatus;
   fontSize: number;
   positionVertical: PositionVertical;
+  maxDurationMinutes?: number | null;
   profanityFilter: boolean;
   paused: boolean;
 }
@@ -83,6 +84,8 @@ export interface TextContent {
   songDescription?: string | null;
   songLengthSeconds?: number | null;
   songLeader?: string | null;
+  sourceUrl?: string | null;
+  sourceLabel?: string | null;
 }
 
 export interface MultilineTextContent {

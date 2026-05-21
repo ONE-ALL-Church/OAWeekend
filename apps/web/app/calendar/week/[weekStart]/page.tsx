@@ -44,6 +44,7 @@ interface PrefillResult {
 export default function WeekDetailPage() {
   const params = useParams<{ weekStart: string }>();
   const weekStart = params.weekStart;
+  const [loadedAt] = useState(() => Date.now());
   const [prefillState, setPrefillState] = useState<{
     isLoading: boolean;
     error: string | null;
@@ -109,6 +110,36 @@ export default function WeekDetailPage() {
 
   // Series info from the week's linked series
   const seriesInfo = week?.series?.[0] ?? null;
+  const sourceSyncSummary = useMemo(() => {
+    if (!week) return null;
+
+    const sourcedEntries = (week.entries ?? []).filter((entry) => {
+      const source = (entry as Record<string, unknown>).source;
+      return source === "planning-center" || source === "rock";
+    });
+
+    if (sourcedEntries.length === 0) return null;
+
+    const latestUpdatedAt = Math.max(
+      ...sourcedEntries.map((entry) =>
+        typeof entry.updatedAt === "number" ? entry.updatedAt : 0,
+      ),
+    );
+    const planningCenterCount = sourcedEntries.filter(
+      (entry) => (entry as Record<string, unknown>).source === "planning-center",
+    ).length;
+    const rockCount = sourcedEntries.filter(
+      (entry) => (entry as Record<string, unknown>).source === "rock",
+    ).length;
+    const ageMs = latestUpdatedAt > 0 ? loadedAt - latestUpdatedAt : null;
+
+    return {
+      latestUpdatedAt,
+      planningCenterCount,
+      rockCount,
+      isStale: ageMs != null && ageMs > 7 * 24 * 60 * 60 * 1000,
+    };
+  }, [week, loadedAt]);
 
   async function handlePrefill() {
     setPrefillState({
@@ -201,9 +232,43 @@ export default function WeekDetailPage() {
                 {week.label}
               </span>
             )}
+            {sourceSyncSummary ? (
+              <span
+                className={`inline-flex px-2.5 py-0.5 rounded-[12px] text-[11px] font-semibold ${
+                  sourceSyncSummary.isStale
+                    ? "bg-[#fff1ef] text-[#b42318]"
+                    : "bg-[#00A4C7]/10 text-[#007996]"
+                }`}
+              >
+                Source sync:{" "}
+                {sourceSyncSummary.latestUpdatedAt > 0
+                  ? new Date(sourceSyncSummary.latestUpdatedAt).toLocaleString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      },
+                    )
+                  : "unknown"}{" "}
+                ({sourceSyncSummary.planningCenterCount} PCO /{" "}
+                {sourceSyncSummary.rockCount} Rock)
+              </span>
+            ) : (
+              <span className="inline-flex px-2.5 py-0.5 rounded-[12px] text-[11px] font-semibold bg-oa-stone-100 text-oa-stone-300">
+                No source sync yet
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-1.5">
+          <Link
+            href={`/planning-center/week/${weekStart}`}
+            className="px-3 py-1.5 rounded-[--radius-button] border border-oa-stone-200 text-sm font-medium text-oa-black-700 hover:bg-oa-stone-100 transition-colors duration-[220ms]"
+          >
+            Planning Center
+          </Link>
           <button
             onClick={handlePrefill}
             disabled={prefillState.isLoading}

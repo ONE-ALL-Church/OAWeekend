@@ -11,7 +11,8 @@ import adminDb from "@/lib/instant-admin";
 export async function GET(request: Request) {
   // Verify cron secret to prevent unauthorized access
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -77,7 +78,10 @@ export async function GET(request: Request) {
         try {
           const res = await fetch(
             `${baseUrl}/api/calendar/week/${ws}/prefill-planning-center`,
-            { method: "POST" },
+            {
+              method: "POST",
+              headers: { authorization: `Bearer ${cronSecret}` },
+            },
           );
           const data = await res.json();
           return { week: ws, written: data.written ?? [], ok: true };

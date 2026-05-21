@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { id } from "@instantdb/admin";
 import adminDb from "@/lib/instant-admin";
+import { requireCalendarWriteAccess } from "@/lib/api-auth";
 import {
   extractWeekNumber,
   getWeekendPlansForWeek,
@@ -260,10 +261,15 @@ async function ensureSeriesForWeek(
 }
 
 export async function POST(
-  _request: Request,
+  request: NextRequest,
   context: { params: Promise<{ weekStart: string }> },
 ) {
   try {
+    const auth = await requireCalendarWriteAccess(request);
+    if (!auth.ok) {
+      return auth.response;
+    }
+
     const { weekStart } = await context.params;
 
     await ensureCalendarStructure();
@@ -348,6 +354,8 @@ export async function POST(
             songDescription: song.description ?? null,
             songLengthSeconds: song.lengthSeconds ?? null,
             songLeader: song.songLeader ?? null,
+            sourceUrl: song.sourceUrl ?? sanDimasPlan?.planUrl ?? null,
+            sourceLabel: "Planning Center",
           })
         : jsonText("");
       upsertEntry(txs, {
