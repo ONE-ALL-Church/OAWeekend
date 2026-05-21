@@ -1,3 +1,11 @@
+---
+title: Rock RMS Integration
+type: reference
+owner: brian.davis@oneandall.church
+last_reviewed: 2026-05-21
+status: active
+---
+
 # Rock RMS Integration
 
 ## Overview

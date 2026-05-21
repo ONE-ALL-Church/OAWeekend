@@ -1,3 +1,11 @@
+---
+title: Phase Roadmap
+type: explanation
+owner: brian.davis@oneandall.church
+last_reviewed: 2026-05-21
+status: active
+---
+
 # Phase Roadmap
 
 ## Phase 1 — Live Captions on Screen (Current)
