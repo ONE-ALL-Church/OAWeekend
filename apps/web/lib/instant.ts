@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 import { init, type InstaQLEntity } from "@instantdb/react";
 import schema, { type AppSchema } from "../instant.schema";
 

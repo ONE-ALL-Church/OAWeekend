@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -12,7 +12,10 @@ import {
 import { useUserEditableSections } from "@/hooks/use-calendar-roles";
 import { CalendarCell } from "@/components/calendar/calendar-cell";
 import { CellEditor } from "@/components/calendar/cell-editor";
-import type { CalendarFieldType } from "@oaweekend/shared";
+import {
+  isCalendarSystemRowSlug,
+  type CalendarFieldType,
+} from "@oaweekend/shared";
 
 export default function SectionDetailPage() {
   const params = useParams<{ sectionSlug: string }>();
@@ -64,6 +67,62 @@ export default function SectionDetailPage() {
   }
 
   const gridCols = `180px repeat(${weeks.length}, minmax(140px, 1fr))`;
+  const renderRow = (
+    row: (typeof section.rows)[number],
+    isLastRow: boolean,
+    isSubRow = false,
+  ) => {
+    const borderClass = isLastRow
+      ? "border-b-2 border-b-oa-stone-200"
+      : "border-b border-b-oa-stone-200/50";
+    const isSystemManaged =
+      isCalendarSystemRowSlug(row.slug) ||
+      !!(row as Record<string, unknown>).campusId;
+
+    return (
+      <div key={row.id} className="contents">
+        <div
+          className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center min-h-[60px] ${
+            isSubRow ? "pl-8 text-oa-black-700" : ""
+          }`}
+        >
+          {row.name}
+        </div>
+        {weeks.map((week) => {
+          const entry = entryMap.get(`${week.id}:${row.id}`);
+          const entrySource = (entry as Record<string, unknown> | undefined)?.source as string | undefined;
+          const isSyncedFromSource =
+            isSystemManaged ||
+            entrySource === "planning-center" ||
+            entrySource === "rock";
+
+          return (
+            <div key={`${week.id}:${row.id}`} className="min-h-[60px]">
+              <CalendarCell
+                content={entry?.content ?? ""}
+                fieldType={row.fieldType as CalendarFieldType}
+                isEditable={!!isEditable}
+                isSyncedFromPC={isSyncedFromSource}
+                isLastRow={isLastRow}
+                onClick={() =>
+                  setEditingCell({
+                    entryId: entry?.id,
+                    weekId: week.id,
+                    rowId: row.id,
+                    rowName: row.name,
+                    fieldType: row.fieldType as CalendarFieldType,
+                    currentContent: entry?.content ?? "",
+                    currentStatus:
+                      (entry?.status as "empty" | "draft" | "confirmed") ?? "empty",
+                  })
+                }
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <main className="flex flex-col flex-1 bg-oa-white">
@@ -150,48 +209,65 @@ export default function SectionDetailPage() {
           })}
 
           {/* Rows */}
-          {section.rows.map((row, rowIdx) => {
-            const isLastRow = rowIdx === section.rows.length - 1;
-            const borderClass = isLastRow
-              ? "border-b-2 border-b-oa-stone-200"
-              : "border-b border-b-oa-stone-200/50";
+          {(() => {
+            const elements: ReactNode[] = [];
 
-            return (
-              <div key={row.id} className="contents">
-                <div
-                  className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center min-h-[60px]`}
-                >
-                  {row.name}
-                </div>
-                {weeks.map((week) => {
-                  const entry = entryMap.get(`${week.id}:${row.id}`);
-                  return (
-                    <div key={`${week.id}:${row.id}`} className="min-h-[60px]">
-                      <CalendarCell
-                        content={entry?.content ?? ""}
-                        fieldType={row.fieldType as CalendarFieldType}
-                        isEditable={!!isEditable}
-                        isSyncedFromPC={(entry as Record<string, unknown> | undefined)?.source === "planning-center"}
-                        isLastRow={isLastRow}
-                        onClick={() =>
-                          setEditingCell({
-                            entryId: entry?.id,
-                            weekId: week.id,
-                            rowId: row.id,
-                            rowName: row.name,
-                            fieldType: row.fieldType as CalendarFieldType,
-                            currentContent: entry?.content ?? "",
-                            currentStatus:
-                              (entry?.status as "empty" | "draft" | "confirmed") ?? "empty",
-                          })
-                        }
-                      />
+            for (let index = 0; index < section.rows.length; index++) {
+              const row = section.rows[index]!;
+              const parentRowId = (row as Record<string, unknown>).parentRowId as string | undefined;
+              if (parentRowId) continue;
+
+              const children = section.rows.filter(
+                (candidate) =>
+                  (candidate as Record<string, unknown>).parentRowId === row.id,
+              );
+
+              if (children.length > 0) {
+                const remainingParentRows = section.rows.slice(index + 1).filter(
+                  (candidate) =>
+                    !(candidate as Record<string, unknown>).parentRowId,
+                );
+
+                elements.push(
+                  <div key={`parent-${row.id}`} className="contents">
+                    <div className="px-4 py-2 text-xs font-bold text-oa-black-900 bg-oa-sand-100/20 border-b border-b-oa-stone-200/50 border-r border-r-oa-stone-200/30 flex items-center gap-1.5 min-h-[40px]">
+                      <span>{row.name}</span>
+                      {isCalendarSystemRowSlug(row.slug) && (
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#00A4C7]/12 text-[8px] font-bold text-[#00A4C7]" title="Synced from Planning Center">
+                          PC
+                        </span>
+                      )}
                     </div>
+                    {weeks.map((week) => (
+                      <div
+                        key={`parent-${row.id}-${week.id}`}
+                        className="border-b border-b-oa-stone-200/50 border-r border-r-oa-stone-200/20 min-h-[40px] bg-oa-sand-100/20"
+                      />
+                    ))}
+                  </div>,
+                );
+
+                children.forEach((child, childIndex) => {
+                  elements.push(
+                    renderRow(
+                      child,
+                      childIndex === children.length - 1 &&
+                        remainingParentRows.length === 0,
+                      true,
+                    ),
                   );
-                })}
-              </div>
-            );
-          })}
+                });
+              } else {
+                const isLastRow = section.rows.slice(index + 1).every(
+                  (candidate) =>
+                    !!(candidate as Record<string, unknown>).parentRowId,
+                );
+                elements.push(renderRow(row, isLastRow));
+              }
+            }
+
+            return elements;
+          })()}
         </div>
       </div>
 

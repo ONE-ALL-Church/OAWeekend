@@ -77,9 +77,9 @@ describe("deepgram key safety", () => {
     expect(returnLines).toHaveLength(0);
   });
 
-  it("throws when DEEPGRAM_PROJECT_ID is not set", () => {
-    // The throw and the string may be on separate lines
-    expect(deepgram).toMatch(/throw new Error[\s\S]*?DEEPGRAM_PROJECT_ID/);
+  it("uses the auth grant endpoint instead of project key creation", () => {
+    expect(deepgram).toContain("https://api.deepgram.com/v1/auth/grant");
+    expect(deepgram).not.toContain("/v1/projects/");
   });
 
   it("throws on failed temp key creation instead of falling back", () => {
@@ -89,6 +89,23 @@ describe("deepgram key safety", () => {
     // Must NOT contain a return apiKey pattern after the fetch
     const returnApiKeyAfterFetch = /return\s+apiKey/.test(afterFetch);
     expect(returnApiKeyAfterFetch).toBe(false);
+  });
+});
+
+describe("deepgram browser auth", () => {
+  const hook = readWeb("hooks/use-deepgram.ts");
+  const route = readWeb("app/api/deepgram-token/route.ts");
+
+  it("uses the bearer websocket subprotocol for temporary JWTs", () => {
+    expect(hook).toContain('new WebSocket(wsUrl, ["bearer", token])');
+    expect(hook).not.toContain('new WebSocket(wsUrl, ["token", token])');
+  });
+
+  it("sends a session-bound token request", () => {
+    expect(hook).toContain('fetch("/api/deepgram-token", {');
+    expect(hook).toContain('body: JSON.stringify({ sessionId: options.sessionId })');
+    expect(route).toContain('sessionId is required');
+    expect(route).toContain('if (session.createdBy !== userSub)');
   });
 });
 

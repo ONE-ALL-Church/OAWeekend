@@ -14,6 +14,7 @@ import { CreateDisplayForm } from "@/components/display-manager";
 
 export function SessionPicker() {
   const router = useRouter();
+  const { user } = db.useAuth();
   const { campuses, services, isLoading: rockLoading, error: rockError } = useRockData();
 
   const [campusId, setCampusId] = useState<string>("");
@@ -68,7 +69,7 @@ export function SessionPicker() {
   }
 
   async function createSession() {
-    if (!campusName) return;
+    if (!campusName || !user?.id) return;
     setCreating(true);
 
     const sessionId = id();
@@ -76,6 +77,7 @@ export function SessionPicker() {
       db.tx.sessions[sessionId].update({
         campusId: campusId || "manual",
         campusName,
+        createdBy: user.id,
         sermonTitle: sermonTitle || null,
         speakerName: speakerName || null,
         scheduleId: null,
@@ -271,11 +273,16 @@ export function SessionPicker() {
 
         <button
           onClick={createSession}
-          disabled={creating || !campusName}
+          disabled={creating || !campusName || !user?.id}
           className="w-full rounded-[--radius-button] bg-oa-yellow-500 py-3 text-sm font-semibold text-oa-black-900 hover:bg-oa-yellow-600 transition-colors duration-150 disabled:opacity-50"
         >
           {creating ? "Creating..." : "Create Session"}
         </button>
+        {!user?.id && (
+          <p className="text-xs text-red-700">
+            Your session expired. Sign in again before creating a session.
+          </p>
+        )}
       </div>
     </div>
   );

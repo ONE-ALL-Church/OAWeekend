@@ -1,43 +1,34 @@
 /**
- * Creates a temporary Deepgram API key scoped to usage only.
+ * Grants a short-lived Deepgram JWT for browser-side WebSocket auth.
  *
- * Requires both DEEPGRAM_API_KEY and DEEPGRAM_PROJECT_ID to be set.
- * Never falls back to the main API key — that would expose a permanent,
- * fully-privileged key to the browser.
+ * This avoids exposing the long-lived API key and does not require project
+ * management scopes like project key creation does.
  */
 export async function createTemporaryDeepgramKey(): Promise<string> {
   const apiKey = process.env.DEEPGRAM_API_KEY;
   if (!apiKey) throw new Error("DEEPGRAM_API_KEY not configured");
 
-  const projectId = process.env.DEEPGRAM_PROJECT_ID;
-  if (!projectId) {
-    throw new Error(
-      "DEEPGRAM_PROJECT_ID is required. Set it to enable short-lived scoped keys."
-    );
-  }
-
-  const res = await fetch(
-    `https://api.deepgram.com/v1/projects/${projectId}/keys`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${apiKey.trim()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        comment: `temp-key-${Date.now()}`,
-        scopes: ["usage:write"],
-        time_to_live_in_seconds: 60,
-      }),
-    }
-  );
+  const res = await fetch("https://api.deepgram.com/v1/auth/grant", {
+    method: "POST",
+    headers: {
+      Authorization: `Token ${apiKey.trim()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ttl_seconds: 60,
+    }),
+  });
 
   if (!res.ok) {
     throw new Error(
-      `[deepgram] Failed to create temp key (${res.status}). Check DEEPGRAM_API_KEY and DEEPGRAM_PROJECT_ID.`
+      `[deepgram] Failed to grant temp token (${res.status}). Check DEEPGRAM_API_KEY permissions.`
     );
   }
 
   const data = await res.json();
-  return data.key;
+  if (!data.access_token) {
+    throw new Error("[deepgram] Missing access_token in auth grant response.");
+  }
+
+  return data.access_token;
 }

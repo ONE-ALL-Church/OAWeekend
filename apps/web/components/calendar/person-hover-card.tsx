@@ -50,17 +50,32 @@ export function PersonHoverCard({
 
   useEffect(() => {
     if (!showCard) return;
-    updatePosition();
+    const frame = window.requestAnimationFrame(updatePosition);
+    let fetchTimeout: number | undefined;
+    let cancelled = false;
 
     if (pcoPersonId && !fetchedRef.current) {
       fetchedRef.current = true;
-      setLoading(true);
-      fetch(`/api/calendar/person/${pcoPersonId}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => { if (data) setContact(data); })
-        .catch(() => {})
-        .finally(() => setLoading(false));
+      fetchTimeout = window.setTimeout(() => {
+        if (cancelled) return;
+        setLoading(true);
+        fetch(`/api/calendar/person/${pcoPersonId}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data && !cancelled) setContact(data);
+          })
+          .catch(() => {})
+          .finally(() => {
+            if (!cancelled) setLoading(false);
+          });
+      }, 0);
     }
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      if (fetchTimeout !== undefined) window.clearTimeout(fetchTimeout);
+    };
   }, [showCard, pcoPersonId, updatePosition]);
 
   return (

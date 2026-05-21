@@ -35,7 +35,9 @@ export function SongHoverCard({ song, children }: SongHoverCardProps) {
   }, []);
 
   useEffect(() => {
-    if (showCard) updatePosition();
+    if (!showCard) return;
+    const frame = window.requestAnimationFrame(updatePosition);
+    return () => window.cancelAnimationFrame(frame);
   }, [showCard, updatePosition]);
 
   if (!hasDetails) {

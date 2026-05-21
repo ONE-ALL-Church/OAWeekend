@@ -8,18 +8,30 @@ import { useUserEditableSections } from "@/hooks/use-calendar-roles";
 import { WeekDetailSection } from "@/components/calendar/week-detail-section";
 import type { CalendarEntry } from "@/lib/instant";
 
+interface SyncedPerson {
+  name: string;
+  photoUrl?: string | null;
+  pcoPersonId?: string | null;
+}
+
 interface PrefillResult {
   written: string[];
   skipped: string[];
+  rock: {
+    seriesTitle: string | null;
+    sermonTitle: string;
+    speaker: string | null;
+  } | null;
+  rockError?: string | null;
   planningCenter: {
     sourceOfTruth: string | null;
     seriesTitle: string | null;
     sermonTitle: string | null;
     songs: Array<{ title: string; key: string | null }>;
-    hostsByCampus: Array<{ campusName: string | null; hosts: string[] }>;
+    hostsByCampus: Array<{ campusName: string | null; hosts: SyncedPerson[] }>;
     worshipLeadersByCampus: Array<{
       campusName: string | null;
-      worshipLeaders: string[];
+      worshipLeaders: SyncedPerson[];
     }>;
     serviceTimesByCampus: Array<{
       campusName: string | null;
@@ -198,8 +210,8 @@ export default function WeekDetailPage() {
             className="px-3 py-1.5 rounded-[--radius-button] border border-oa-stone-200 text-sm font-medium text-oa-black-700 hover:bg-oa-stone-100 transition-colors duration-[220ms] disabled:opacity-50"
           >
             {prefillState.isLoading
-              ? "Pulling Planning Center..."
-              : "Prefill from Planning Center"}
+              ? "Syncing Planning Center..."
+              : "Sync Planning Center"}
           </button>
           {prevWeek && (
             <Link
@@ -228,19 +240,27 @@ export default function WeekDetailPage() {
             ) : prefillState.result ? (
               <div className="space-y-3 text-sm text-oa-black-900">
                 <p>
-                  Filled {prefillState.result.written.length} blank field
-                  {prefillState.result.written.length === 1 ? "" : "s"} from
-                  Planning Center.
-                  {prefillState.result.skipped.length > 0 &&
-                    ` Skipped ${prefillState.result.skipped.length} field${prefillState.result.skipped.length === 1 ? "" : "s"} that already had content.`}
+                  Synced {prefillState.result.written.length} source-of-truth
+                  field{prefillState.result.written.length === 1 ? "" : "s"} from
+                  Planning Center/Rock.
+                  {prefillState.result.rockError &&
+                    ` Rock sermon lookup was skipped: ${prefillState.result.rockError}`}
                 </p>
                 <p className="text-oa-black-700">
                   Source of truth for songs:{" "}
                   {prefillState.result.planningCenter.sourceOfTruth ?? "none"}.
-                  {prefillState.result.planningCenter.seriesTitle &&
-                    ` Series: ${prefillState.result.planningCenter.seriesTitle}.`}
-                  {prefillState.result.planningCenter.sermonTitle &&
-                    ` Sermon title: ${prefillState.result.planningCenter.sermonTitle}.`}
+                  {(prefillState.result.rock?.seriesTitle ??
+                    prefillState.result.planningCenter.seriesTitle) &&
+                    ` Series: ${
+                      prefillState.result.rock?.seriesTitle ??
+                      prefillState.result.planningCenter.seriesTitle
+                    }.`}
+                  {(prefillState.result.rock?.sermonTitle ??
+                    prefillState.result.planningCenter.sermonTitle) &&
+                    ` Sermon title: ${
+                      prefillState.result.rock?.sermonTitle ??
+                      prefillState.result.planningCenter.sermonTitle
+                    }.`}
                 </p>
                 <div className="grid gap-3 md:grid-cols-3">
                   {prefillState.result.planningCenter.hostsByCampus.map(
@@ -251,8 +271,26 @@ export default function WeekDetailPage() {
                         </div>
                         <div className="mt-1 text-[13px]">
                           {campus.hosts.length > 0
-                            ? campus.hosts.join(", ")
+                            ? campus.hosts.map((host) => host.name).join(", ")
                             : "No host assigned"}
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {prefillState.result.planningCenter.worshipLeadersByCampus.map(
+                    (campus) => (
+                      <div key={`worship-${campus.campusName ?? "unknown"}`}>
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-oa-stone-300">
+                          {campus.campusName ?? "Unknown campus"} Worship Leader
+                        </div>
+                        <div className="mt-1 text-[13px]">
+                          {campus.worshipLeaders.length > 0
+                            ? campus.worshipLeaders
+                                .map((leader) => leader.name)
+                                .join(", ")
+                            : "No worship leader assigned"}
                         </div>
                       </div>
                     ),
@@ -260,7 +298,7 @@ export default function WeekDetailPage() {
                 </div>
                 <p className="text-[12px] text-oa-stone-300">
                   Also available from the API for a future wrapper: worship
-                  leaders, service times, song keys, and full service items.
+                  leaders, service times, song keys, song metadata, and plan ids.
                 </p>
               </div>
             ) : null}

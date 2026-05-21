@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useDisplays, setDisplaySession } from "@/hooks/use-displays";
 import { DISPLAY_ONLINE_THRESHOLD_MS } from "@oaweekend/shared";
 
@@ -13,6 +14,12 @@ export function DisplayAssignment({
   campusId,
 }: DisplayAssignmentProps) {
   const { displays, isLoading } = useDisplays();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   if (isLoading) {
     return (
@@ -59,7 +66,7 @@ export function DisplayAssignment({
             !isAssigned && !!d.activeSessionId && d.activeSessionId !== "";
           const isOnline =
             !!d.lastSeenAt &&
-            Date.now() - d.lastSeenAt < DISPLAY_ONLINE_THRESHOLD_MS;
+            now - d.lastSeenAt < DISPLAY_ONLINE_THRESHOLD_MS;
 
           return (
             <div

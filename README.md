@@ -45,7 +45,7 @@ pnpm dev
 | `NEXT_PUBLIC_INSTANT_APP_ID` | Yes | InstantDB app ID |
 | `INSTANT_ADMIN_TOKEN` | Yes | InstantDB admin token |
 | `DEEPGRAM_API_KEY` | Yes | Deepgram API key (server-only) |
-| `DEEPGRAM_PROJECT_ID` | Yes | Deepgram project ID (for scoped temp keys) |
+| `DEEPGRAM_PROJECT_ID` | No | Legacy project ID; not required when using auth-grant temp tokens |
 | `ROCK_OIDC_BASE_URL` | Yes | Rock RMS OIDC endpoint base URL |
 | `ROCK_CLIENT_ID` | Yes | Rock OIDC client ID |
 | `ROCK_CLIENT_SECRET` | Yes | Rock OIDC client secret |
@@ -53,6 +53,9 @@ pnpm dev
 | `ROCK_BASE_URL` | No | Rock RMS instance URL |
 | `ROCK_API_KEY` | No | Rock RMS API key |
 | `ROCK_CONTENT_CHANNEL_ID` | No | Rock content channel for sermons |
+| `PLANNING_CENTER_BASE_URL` | No | Planning Center API base URL (defaults to `https://api.planningcenteronline.com`) |
+| `PLANNING_CENTER_CLIENT_ID` | No | Planning Center personal access token client ID |
+| `PLANNING_CENTER_CLIENT_SECRET` | No | Planning Center personal access token secret |
 
 ## Pages
 

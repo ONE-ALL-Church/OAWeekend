@@ -8,7 +8,10 @@ import {
   createCalendarRow,
   deleteCalendarRow,
 } from "@/hooks/use-calendar-settings";
-import { CALENDAR_FIELD_TYPE_OPTIONS } from "@oaweekend/shared";
+import {
+  CALENDAR_FIELD_TYPE_OPTIONS,
+  isCalendarSystemRowSlug,
+} from "@oaweekend/shared";
 import type { CalendarSectionWithRows } from "@/lib/instant";
 
 export function CalendarSettingsPanel() {
@@ -109,6 +112,7 @@ export function CalendarSettingsPanel() {
 function SectionDetail({ section }: { section: CalendarSectionWithRows }) {
   const [addingRowName, setAddingRowName] = useState("");
   const [addingRowFieldType, setAddingRowFieldType] = useState("text");
+  const hasManagedRows = section.rows.some(isManagedRow);
 
   return (
     <div className="bg-oa-white border border-oa-stone-200 rounded-[--radius-card] shadow-[--shadow-card] overflow-hidden">
@@ -121,11 +125,18 @@ function SectionDetail({ section }: { section: CalendarSectionWithRows }) {
         <div className="flex-1" />
         <button
           onClick={async () => {
+            if (hasManagedRows) return;
             if (confirm(`Delete section "${section.name}" and all its rows?`)) {
               await deleteCalendarSection(section.id);
             }
           }}
-          className="text-xs text-red-500 hover:text-red-600 transition-colors"
+          disabled={hasManagedRows}
+          title={
+            hasManagedRows
+              ? "This section contains Planning Center/Rock managed rows."
+              : undefined
+          }
+          className="text-xs text-red-500 hover:text-red-600 transition-colors disabled:text-oa-stone-300 disabled:cursor-not-allowed"
         >
           Delete Section
         </button>
@@ -133,32 +144,53 @@ function SectionDetail({ section }: { section: CalendarSectionWithRows }) {
 
       {/* Rows */}
       <div className="divide-y divide-oa-stone-200/30">
-        {section.rows.map((row) => (
-          <div
-            key={row.id}
-            className="flex items-center gap-3 px-5 py-2.5 group"
-          >
-            <span className="flex-1 text-sm text-oa-black-900">{row.name}</span>
-            <span className="text-xs text-oa-stone-300 bg-oa-stone-100 px-2 py-0.5 rounded">
-              {row.fieldType}
-            </span>
-            {row.campusSpecific && (
-              <span className="text-[10px] text-blue-500 font-semibold">
-                Campus
-              </span>
-            )}
-            <button
-              onClick={async () => {
-                if (confirm(`Delete row "${row.name}"?`)) {
-                  await deleteCalendarRow(row.id);
-                }
-              }}
-              className="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-600 transition-all"
+        {section.rows.map((row) => {
+          const managed = isManagedRow(row);
+          const parentRowId = (row as Record<string, unknown>).parentRowId as string | undefined;
+
+          return (
+            <div
+              key={row.id}
+              className={`flex items-center gap-3 px-5 py-2.5 group ${
+                parentRowId ? "pl-9 bg-oa-sand-100/15" : ""
+              }`}
             >
-              ×
-            </button>
-          </div>
-        ))}
+              <span className="flex-1 text-sm text-oa-black-900">{row.name}</span>
+              <span className="text-xs text-oa-stone-300 bg-oa-stone-100 px-2 py-0.5 rounded">
+                {row.fieldType}
+              </span>
+              {managed && (
+                <span className="text-[10px] text-[#00A4C7] font-bold uppercase tracking-wider">
+                  Synced
+                </span>
+              )}
+              {row.campusSpecific && (
+                <span className="text-[10px] text-blue-500 font-semibold">
+                  Campus
+                </span>
+              )}
+              {managed ? (
+                <span
+                  className="text-xs text-oa-stone-300"
+                  title="Source-of-truth row managed by Planning Center/Rock"
+                >
+                  locked
+                </span>
+              ) : (
+                <button
+                  onClick={async () => {
+                    if (confirm(`Delete row "${row.name}"?`)) {
+                      await deleteCalendarRow(row.id);
+                    }
+                  }}
+                  className="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-600 transition-all"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Add row */}
@@ -207,4 +239,8 @@ function SectionDetail({ section }: { section: CalendarSectionWithRows }) {
       </div>
     </div>
   );
+}
+
+function isManagedRow(row: { slug: string; campusId?: unknown }) {
+  return isCalendarSystemRowSlug(row.slug) || !!row.campusId;
 }

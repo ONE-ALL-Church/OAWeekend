@@ -4,10 +4,8 @@ import { use, useState, useEffect, useRef } from "react";
 import db from "@/lib/instant";
 import { useSession } from "@/hooks/use-session";
 import { useDisplayBySlug, sendHeartbeat } from "@/hooks/use-displays";
-import { CaptionOverlay } from "@/components/caption-display";
-import type { CaptionLine } from "@/components/caption-display";
+import { CaptionOverlay, type CaptionLine } from "@/components/caption-display";
 import { HEARTBEAT_INTERVAL_MS } from "@oaweekend/shared";
-
 
 function DisplayRenderer({
   display,
@@ -24,44 +22,6 @@ function DisplayRenderer({
 }) {
   const sessionId = display.activeSessionId || null;
   const { session } = useSession(sessionId ?? "__none__");
-
-  const [completedLines, setCompletedLines] = useState<CaptionLine[]>([]);
-  const lineIdRef = useRef(0);
-  const prevSessionIdRef = useRef<string | null>(sessionId);
-
-  // Clear caption state when session changes
-  useEffect(() => {
-    if (prevSessionIdRef.current !== sessionId) {
-      setCompletedLines([]);
-      lineIdRef.current = 0;
-      prevSessionIdRef.current = sessionId;
-    }
-  }, [sessionId]);
-
-  // Subscribe to transcript topic
-  const room = db.room("captions", sessionId ?? "__none__");
-  db.rooms.useTopicEffect(room, "transcript", (msg) => {
-    if (!sessionId) return;
-
-    const data = msg as {
-      kind: string;
-      text: string;
-      sequence: number;
-      startMs: number;
-      endMs: number;
-    };
-
-    if (data.kind === "final") {
-      setCompletedLines((prev) => [
-        ...prev,
-        {
-          id: lineIdRef.current++,
-          text: data.text,
-          timestamp: Date.now(),
-        },
-      ]);
-    }
-  });
 
   // Heartbeat
   useEffect(() => {
@@ -121,17 +81,76 @@ function DisplayRenderer({
   // Live / idle session — show captions
   return (
     <div className={`fixed inset-0 ${bgClass}`}>
-      <CaptionOverlay
+      <SessionCaptionStream
+        key={sessionId}
+        sessionId={sessionId}
         fontSize={display.fontSize ?? 64}
         positionVertical={
           (display.positionVertical as "top" | "middle" | "bottom") ?? "bottom"
         }
         maxLines={display.maxLines ?? 3}
         paused={session.paused ?? false}
-        completedLines={completedLines}
         textColorClass={textClass}
       />
     </div>
+  );
+}
+
+function SessionCaptionStream({
+  sessionId,
+  fontSize,
+  positionVertical,
+  maxLines,
+  paused,
+  textColorClass,
+}: {
+  sessionId: string;
+  fontSize: number;
+  positionVertical: "top" | "middle" | "bottom";
+  maxLines: number;
+  paused: boolean;
+  textColorClass: string;
+}) {
+  const [lines, setLines] = useState<CaptionLine[]>([]);
+  const lineIdRef = useRef(0);
+  const interimRef = useRef<string>("");
+
+  const room = db.room("captions", sessionId);
+  db.rooms.useTopicEffect(room, "transcript", (msg) => {
+    const data = msg as {
+      kind: string;
+      text: string;
+      sequence: number;
+      startMs: number;
+      endMs: number;
+    };
+
+    if (data.kind === "final") {
+      interimRef.current = "";
+      setLines((prev) => [
+        ...prev,
+        {
+          id: lineIdRef.current++,
+          text: data.text,
+          timestamp: Date.now(),
+          startMs: data.startMs,
+          endMs: data.endMs,
+        },
+      ]);
+    } else {
+      interimRef.current = data.text;
+    }
+  });
+
+  return (
+    <CaptionOverlay
+      fontSize={fontSize}
+      positionVertical={positionVertical}
+      maxLines={maxLines}
+      paused={paused}
+      lines={lines}
+      textColorClass={textColorClass}
+    />
   );
 }
 

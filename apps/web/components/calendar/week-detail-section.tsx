@@ -6,14 +6,15 @@ import { CellEditor } from "./cell-editor";
 import { PersonChip } from "./person-chip";
 import { SeriesHoverCard } from "./series-hover-card";
 import { SongHoverCard } from "./song-hover-card";
-import type {
-  CalendarFieldType,
-  PersonPickerContent,
-  TagListContent,
-  MultilineTextContent,
-  TextContent,
-  SeriesPickerContent,
-  CampusPickerContent,
+import {
+  isCalendarSystemRowSlug,
+  type CalendarFieldType,
+  type PersonPickerContent,
+  type TagListContent,
+  type MultilineTextContent,
+  type TextContent,
+  type SeriesPickerContent,
+  type CampusPickerContent,
 } from "@oaweekend/shared";
 
 interface WeekDetailSectionProps {
@@ -87,7 +88,11 @@ export function WeekDetailSection({
                 const entry = entries.get(child.id);
                 const content = entry?.content ?? "";
                 const childSource = (entry as Record<string, unknown> | undefined)?.source as string | undefined;
-                const isChildSyncedFromPC = !!(child as Record<string, unknown>).campusId || childSource === "planning-center" || childSource === "rock";
+                const isChildSyncedFromPC =
+                  isCalendarSystemRowSlug(child.slug) ||
+                  !!(child as Record<string, unknown>).campusId ||
+                  childSource === "planning-center" ||
+                  childSource === "rock";
                 const rowEditable = isEditable && !isChildSyncedFromPC;
 
                 elements.push(
@@ -120,7 +125,10 @@ export function WeekDetailSection({
               const entry = entries.get(row.id);
               const content = entry?.content ?? "";
               const regularSource = (entry as Record<string, unknown> | undefined)?.source as string | undefined;
-              const isSyncedFromPC = regularSource === "planning-center" || regularSource === "rock";
+              const isSyncedFromPC =
+                isCalendarSystemRowSlug(row.slug) ||
+                regularSource === "planning-center" ||
+                regularSource === "rock";
               const rowEditable = isEditable && !isSyncedFromPC;
 
               elements.push(
