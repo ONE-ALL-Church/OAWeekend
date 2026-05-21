@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getCalendarSourceSnapshotForWeek } from "@/lib/calendar-source-snapshot";
 import {
   getWeekendPlansForWeek,
   type PlanningCenterPerson,
@@ -8,6 +9,7 @@ import {
   type WeekendPlanSummary,
 } from "@/lib/planning-center";
 import { getSermonForWeek } from "@/lib/rock";
+import { SourceComparisonPanel } from "./source-comparison-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,10 +24,12 @@ export default async function PlanningCenterWeekPage({
 }: PageProps) {
   const { weekStart } = await params;
   const { campus } = await searchParams;
-  const [planningCenterResult, rockResult] = await Promise.allSettled([
-    getWeekendPlansForWeek(weekStart),
-    getSermonForWeek(weekStart),
-  ]);
+  const [planningCenterResult, rockResult, calendarSnapshotResult] =
+    await Promise.allSettled([
+      getWeekendPlansForWeek(weekStart),
+      getSermonForWeek(weekStart),
+      getCalendarSourceSnapshotForWeek(weekStart),
+    ]);
 
   const planningCenter =
     planningCenterResult.status === "fulfilled"
@@ -33,11 +37,27 @@ export default async function PlanningCenterWeekPage({
       : null;
   const rockSermon =
     rockResult.status === "fulfilled" ? rockResult.value : null;
+  const calendarSnapshot =
+    calendarSnapshotResult.status === "fulfilled"
+      ? calendarSnapshotResult.value
+      : null;
   const error =
     planningCenterResult.status === "rejected"
       ? planningCenterResult.reason instanceof Error
         ? planningCenterResult.reason.message
         : "Planning Center lookup failed"
+      : null;
+  const rockError =
+    rockResult.status === "rejected"
+      ? rockResult.reason instanceof Error
+        ? rockResult.reason.message
+        : "Rock lookup failed"
+      : null;
+  const calendarError =
+    calendarSnapshotResult.status === "rejected"
+      ? calendarSnapshotResult.reason instanceof Error
+        ? calendarSnapshotResult.reason.message
+        : "Calendar source row lookup failed"
       : null;
 
   const campusPlans = planningCenter?.plans ?? [];
@@ -135,6 +155,15 @@ export default async function PlanningCenterWeekPage({
             detail="Sync overwrites PCO/Rock-managed fields"
           />
         </section>
+
+        <SourceComparisonPanel
+          rockSermon={rockSermon}
+          rockError={rockError}
+          planningCenter={planningCenter}
+          planningCenterError={error}
+          calendarSnapshot={calendarSnapshot}
+          calendarError={calendarError}
+        />
 
         {campusPlans.length > 0 ? (
           <CampusTabs

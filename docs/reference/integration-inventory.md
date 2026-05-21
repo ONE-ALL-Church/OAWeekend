@@ -38,6 +38,7 @@ This page lists external systems and the source files that own their contracts.
 ## Planning Center Services
 
 - Helper: `apps/web/lib/planning-center.ts`
+- Calendar source snapshot helper: `apps/web/lib/calendar-source-snapshot.ts`
 - Wrapper landing: `apps/web/app/planning-center/page.tsx`
 - Plan search helper: `searchPlanningCenterPlans`
 - Week drill-down: `apps/web/app/planning-center/week/[weekStart]/page.tsx`
