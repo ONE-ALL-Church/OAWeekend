@@ -25,7 +25,7 @@ OAWeekend is a pnpm/turbo monorepo for live captions, weekend planning, and serv
 - `/display/[slug]` and `/display/session/[sessionId]` - projector-safe display surfaces.
 - `/calendar` - weekend calendar grid and week planning entry point.
 - `/calendar/week/[weekStart]` - week detail and source-data entry point.
-- `/planning-center` - read-only Planning Center wrapper landing and rolling weekend selector.
+- `/planning-center` - read-only Planning Center wrapper landing, plan search, and rolling weekend selector.
 - `/planning-center/week/[weekStart]` - read-only Planning Center drill-down.
 
 ## API surfaces

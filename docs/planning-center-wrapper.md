@@ -10,9 +10,9 @@ status: active
 
 ## Current State
 
-OA Weekend has two Planning Center surfaces:
+OA Weekend has three Planning Center surfaces:
 
-- Wrapper landing: `/planning-center`
+- Wrapper landing and search: `/planning-center`
 - Calendar prefill: `POST /api/calendar/week/[weekStart]/prefill-planning-center`
 - Read-only drill-down: `/planning-center/week/[weekStart]`
 
@@ -29,6 +29,7 @@ The calendar prefill writes source-of-truth rows only. These rows are not editab
 `apps/web/lib/planning-center.ts` currently pulls these service-plan surfaces:
 
 - Plan metadata: campus, plan id, dates, series title, plan title, week label, total length
+- Plan search: exact week/date, numeric plan id, and Planning Center plan URL lookup across configured campus service types
 - Songs: title, key, author, CCLI, themes, previous scheduling label, description, duration, song leader, source URL
 - Full service order: sequence, title, item type, key, duration, description, notes, linked song metadata, item source URL
 - People: hosts, worship leaders, and all active team assignments by role
@@ -49,12 +50,12 @@ The prefill endpoint also verifies write access server-side:
 The current practical slice turns the read-only drill-down into the start of a wrapper around the service plan:
 
 - `/planning-center` lists a rolling weekend window outside the calendar.
+- `/planning-center?q=...` searches by exact week/date, numeric Planning Center plan id, or Planning Center plan URL.
 - `/planning-center/week/[weekStart]` uses campus tabs and item-level panels for service order, songs, notes, people, and times.
 - Add Planning Center deep links at every level.
 - Keep OA Weekend writes separate from Planning Center writes until there is an explicit edit workflow and audit trail.
 
-## Next Wrapper Direction
+## Remaining Wrapper Direction
 
-- Add service-plan search by exact week, plan id, or Planning Center URL.
 - Add compare/diff views between Rock, Planning Center, and existing calendar source rows.
 - Add audit trails before any Planning Center write-back is considered.
