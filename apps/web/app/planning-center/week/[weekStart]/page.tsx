@@ -340,9 +340,7 @@ function CampusPlanCard({
             </span>
           </div>
           <div className="space-y-2.5">
-            {plan.serviceItems.map((item) => (
-              <ServiceItemPanel key={item.id} item={item} />
-            ))}
+            <ServiceOrderSections items={plan.serviceItems} />
           </div>
         </div>
 
@@ -634,9 +632,102 @@ function SongsBlock({
   );
 }
 
+function ServiceOrderSections({
+  items,
+}: {
+  items: PlanningCenterServiceItem[];
+}) {
+  const sections = groupServiceItemsByHeader(items);
+
+  return (
+    <div className="space-y-3">
+      {sections.map((section, index) =>
+        section.header ? (
+          <ServiceHeaderSection
+            key={section.header.id}
+            header={section.header}
+            items={section.items}
+          />
+        ) : (
+          <div key={`service-items-${index}`} className="space-y-2.5">
+            {section.items.map((item) => (
+              <ServiceItemPanel key={item.id} item={item} />
+            ))}
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
+function ServiceHeaderSection({
+  header,
+  items,
+}: {
+  header: PlanningCenterServiceItem;
+  items: PlanningCenterServiceItem[];
+}) {
+  return (
+    <details
+      open
+      className="rounded-[18px] border border-oa-stone-200 bg-[#fffdf8] transition-colors duration-[220ms] open:bg-oa-white"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0">
+          <div className="text-base font-black uppercase tracking-[0.24em] text-oa-black-900">
+            {header.title || "Section"}
+          </div>
+          {items.length > 0 ? (
+            <div className="mt-1 text-xs font-semibold text-oa-black-700">
+              {items.length} item{items.length === 1 ? "" : "s"}
+            </div>
+          ) : null}
+        </div>
+        <span className="text-oa-black-700">
+          →
+        </span>
+      </summary>
+      {items.length > 0 ? (
+        <div className="space-y-2.5 border-t border-oa-stone-200/60 bg-oa-white/45 px-4 py-3">
+          {items.map((item) => (
+            <ServiceItemPanel key={item.id} item={item} />
+          ))}
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
+function groupServiceItemsByHeader(items: PlanningCenterServiceItem[]) {
+  const sections: Array<{
+    header: PlanningCenterServiceItem | null;
+    items: PlanningCenterServiceItem[];
+  }> = [];
+  let currentSection: {
+    header: PlanningCenterServiceItem | null;
+    items: PlanningCenterServiceItem[];
+  } | null = null;
+
+  for (const item of items) {
+    if (item.itemType === "header") {
+      currentSection = { header: item, items: [] };
+      sections.push(currentSection);
+      continue;
+    }
+
+    if (!currentSection) {
+      currentSection = { header: null, items: [] };
+      sections.push(currentSection);
+    }
+
+    currentSection.items.push(item);
+  }
+
+  return sections;
+}
+
 function ServiceItemPanel({ item }: { item: PlanningCenterServiceItem }) {
   const isSong = item.itemType === "song";
-  const shouldShowDuration = item.itemType !== "header";
 
   return (
     <details
@@ -672,11 +763,9 @@ function ServiceItemPanel({ item }: { item: PlanningCenterServiceItem }) {
           </div>
         </div>
         <div className="flex items-start justify-between gap-3 text-xs font-semibold text-oa-stone-300 md:justify-end">
-          {shouldShowDuration ? (
-            <span className="rounded-full border border-oa-stone-200 bg-oa-white px-2.5 py-1 text-oa-black-700">
-              {formatDuration(item.lengthSeconds)}
-            </span>
-          ) : null}
+          <span className="rounded-full border border-oa-stone-200 bg-oa-white px-2.5 py-1 text-oa-black-700">
+            {formatDuration(item.lengthSeconds)}
+          </span>
           <span className="text-oa-black-700 transition-transform duration-[220ms] group-open:rotate-90">
             →
           </span>
