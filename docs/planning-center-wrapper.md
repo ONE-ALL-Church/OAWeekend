@@ -53,7 +53,8 @@ The current practical slice turns the read-only drill-down into the start of a w
 
 - `/planning-center` lists a rolling weekend window outside the calendar.
 - `/planning-center?q=...` searches by exact week/date, numeric Planning Center plan id, or Planning Center plan URL.
-- `/planning-center/week/[weekStart]` uses campus tabs, source comparison, and item-level panels for service order, songs, notes, people, and times.
+- `/planning-center/week/[weekStart]` is campus-first: sticky campus tabs select one campus, the service order is the primary workspace, campus source data sits in a secondary rail, and source health is a collapsed audit panel unless there is drift.
+- Campus source data remains read-only in the wrapper. Hosts, worship leaders, songs, plan times, team assignments, and service items are displayed from Planning Center without creating an interface write path.
 - Add Planning Center deep links at every level.
 - Keep OA Weekend writes separate from Planning Center writes until there is an explicit edit workflow and audit trail.
 

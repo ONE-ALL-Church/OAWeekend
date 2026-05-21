@@ -52,3 +52,9 @@ Format:
 - Touched: [Calendar UI UX Review](explanation/calendar-ui-ux-review.md), this file
 - Notes: Fixed `/calendar` Rock event pills so long event names truncate inside the week cell instead of widening or bleeding across neighboring columns. Hover-card action links now wrap inside the card, and the card is constrained to the viewport height/width.
 - Validation: `git diff --check`, docs markdown link check, `PATH=/usr/local/bin:$PATH pnpm --filter web lint` (existing warnings only), `PATH=/usr/local/bin:$PATH pnpm --filter web build`, and `PATH=/usr/local/bin:$PATH pnpm test`. Local HTTP smoke returned `HTTP 200` for `/calendar`.
+
+## [2026-05-21] ingest | Planning Center week workspace redesign
+
+- Touched: [Planning Center Wrapper](planning-center-wrapper.md), this file
+- Notes: Rebuilt `/planning-center/week/[weekStart]` around the actual campus service plan instead of the source-audit panel. Campus tabs are sticky, service order renders before secondary source details, source health is collapsed unless drift/errors exist, plan times and team assignments are grouped behind disclosure controls, and Planning Center source values remain read-only.
+- Validation: `git diff --check`, docs markdown link check, `PATH=/usr/local/bin:$PATH pnpm --filter web lint` (existing warnings only), `PATH=/usr/local/bin:$PATH pnpm --filter web build`, and `PATH=/usr/local/bin:$PATH pnpm test`. Local visual smoke captured `/tmp/pco-week-redesign-804-top-v2.png`, `/tmp/pco-week-redesign-804-full-v2.png`, and `/tmp/pco-week-redesign-desktop-v2.png` from `http://localhost:3001/planning-center/week/2026-03-21`.

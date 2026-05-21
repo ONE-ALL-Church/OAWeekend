@@ -55,6 +55,10 @@ export function SourceComparisonPanel({
     .length;
   const reviewCount = comparisons.filter((row) => row.status === "review")
     .length;
+  const issueRows = comparisons.filter((row) => row.status !== "matched");
+  const visibleComparisons = issueRows.length > 0 ? issueRows : comparisons;
+  const hasSourceError = Boolean(rockError || planningCenterError || calendarError);
+  const shouldOpen = issueRows.length > 0 || hasSourceError;
 
   const pcoSeriesTitle = pickFirstPlanningCenterValue(
     planningCenter,
@@ -68,112 +72,132 @@ export function SourceComparisonPanel({
   const campusPlans = planningCenter?.plans ?? [];
 
   return (
-    <section className="mb-6 overflow-hidden rounded-[--radius-card] border border-oa-stone-200 bg-oa-white shadow-[--shadow-card]">
-      <div className="border-b border-oa-stone-200/60 bg-[#fffaf0] px-5 py-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
+    <section className="mt-6">
+      <details
+        className="group overflow-hidden rounded-[--radius-card] border border-oa-stone-200 bg-oa-white shadow-[--shadow-card]"
+        open={shouldOpen}
+      >
+        <summary className="grid cursor-pointer list-none gap-4 bg-[#fffaf0] px-5 py-4 lg:grid-cols-[minmax(0,1fr)_320px] [&::-webkit-details-marker]:hidden">
+          <div className="min-w-0">
             <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-oa-stone-300">
-              Source comparison
+              Source health
             </div>
-            <h2 className="mt-1 text-2xl font-black tracking-tight">
-              Rock vs Planning Center vs calendar rows
-            </h2>
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <h2 className="text-xl font-black tracking-tight">
+                Rock, Planning Center, and calendar rows
+              </h2>
+              <span className="text-oa-black-700 transition-transform duration-[220ms] group-open:rotate-90">
+                →
+              </span>
+            </div>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-oa-black-700">
-              Read-only drift view for the system-managed rows. This does not
-              sync or edit Planning Center, Rock, or the calendar.
+              {issueRows.length > 0 || hasSourceError
+                ? "Review source exceptions before trusting the stored calendar rows."
+                : "All managed source rows match. Expand for row-level audit detail."}
             </p>
           </div>
-          <div className="grid min-w-[260px] grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-3 gap-2 text-center">
             <StatusMetric label="Matched" value={matchedCount} tone="matched" />
             <StatusMetric label="Review" value={reviewCount} tone="review" />
             <StatusMetric label="Missing" value={missingCount} tone="missing" />
           </div>
-        </div>
-      </div>
+        </summary>
 
-      <div className="grid gap-0 lg:grid-cols-3">
-        <SourceCard
-          title="Rock RMS"
-          tone="rock"
-          error={rockError}
-          rows={[
-            ["Series", rockSermon?.seriesTitle ?? "Not found"],
-            ["Sermon title", rockSermon?.sermonTitle ?? "Not found"],
-            ["Speaker", rockSermon?.speaker ?? "Not assigned"],
-          ]}
-        />
-        <SourceCard
-          title="Planning Center"
-          tone="planning-center"
-          error={planningCenterError}
-          rows={[
-            ["Series", pcoSeriesTitle ?? "Not found"],
-            ["Plan title", pcoSermonTitle ?? "Not found"],
-            [
-              "San Dimas songs",
-              sanDimasSongs.length > 0
-                ? sanDimasSongs
-                    .slice(0, 4)
-                    .map((song) => song.title)
-                    .join(", ")
-                : "Not found",
-            ],
-            [
-              "Campus plans",
-              campusPlans
-                .map(({ campusName, plan }) =>
-                  plan ? `${campusName}: ${plan.planId}` : `${campusName}: none`,
-                )
-                .join(" / ") || "Not found",
-            ],
-          ]}
-        />
-        <SourceCard
-          title="Stored calendar rows"
-          tone="calendar"
-          error={calendarError}
-          rows={[
-            [
-              "Week row",
-              calendarSnapshot?.weekFound
-                ? calendarSnapshot.weekId ?? "Found"
-                : "Not found",
-            ],
-            [
-              "Last source sync",
-              calendarSnapshot?.latestUpdatedAt
-                ? formatTimestamp(calendarSnapshot.latestUpdatedAt)
-                : "No source rows",
-            ],
-            [
-              "Source counts",
-              calendarSnapshot
-                ? `${calendarSnapshot.planningCenterCount} PCO / ${calendarSnapshot.rockCount} Rock`
-                : "Unavailable",
-            ],
-            [
-              "Empty managed rows",
-              calendarSnapshot
-                ? String(calendarSnapshot.missingSlugs.length)
-                : "Unavailable",
-            ],
-          ]}
-        />
-      </div>
+        <div className="grid gap-0 border-t border-oa-stone-200/60 lg:grid-cols-3">
+          <SourceCard
+            title="Rock RMS"
+            tone="rock"
+            error={rockError}
+            rows={[
+              ["Series", rockSermon?.seriesTitle ?? "Not found"],
+              ["Sermon title", rockSermon?.sermonTitle ?? "Not found"],
+              ["Speaker", rockSermon?.speaker ?? "Not assigned"],
+            ]}
+          />
+          <SourceCard
+            title="Planning Center"
+            tone="planning-center"
+            error={planningCenterError}
+            rows={[
+              ["Series", pcoSeriesTitle ?? "Not found"],
+              ["Plan title", pcoSermonTitle ?? "Not found"],
+              [
+                "San Dimas songs",
+                sanDimasSongs.length > 0
+                  ? sanDimasSongs
+                      .slice(0, 4)
+                      .map((song) => song.title)
+                      .join(", ")
+                  : "Not found",
+              ],
+              [
+                "Campus plans",
+                campusPlans
+                  .map(({ campusName, plan }) =>
+                    plan
+                      ? `${campusName}: ${plan.planId}`
+                      : `${campusName}: none`,
+                  )
+                  .join(" / ") || "Not found",
+              ],
+            ]}
+          />
+          <SourceCard
+            title="Stored calendar rows"
+            tone="calendar"
+            error={calendarError}
+            rows={[
+              [
+                "Week row",
+                calendarSnapshot?.weekFound
+                  ? calendarSnapshot.weekId ?? "Found"
+                  : "Not found",
+              ],
+              [
+                "Last source sync",
+                calendarSnapshot?.latestUpdatedAt
+                  ? formatTimestamp(calendarSnapshot.latestUpdatedAt)
+                  : "No source rows",
+              ],
+              [
+                "Source counts",
+                calendarSnapshot
+                  ? `${calendarSnapshot.planningCenterCount} PCO / ${calendarSnapshot.rockCount} Rock`
+                  : "Unavailable",
+              ],
+              [
+                "Empty managed rows",
+                calendarSnapshot
+                  ? String(calendarSnapshot.missingSlugs.length)
+                  : "Unavailable",
+              ],
+            ]}
+          />
+        </div>
 
-      <div className="border-t border-oa-stone-200/60 px-5 py-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-black tracking-tight">Managed Row Diff</h3>
-          <span className="text-xs font-semibold text-oa-stone-300">
-            Expected source value compared with current InstantDB row content
-          </span>
+        <div className="border-t border-oa-stone-200/60 px-5 py-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-black tracking-tight">
+                Managed Row Diff
+              </h3>
+              <p className="mt-1 text-xs font-semibold text-oa-stone-300">
+                {issueRows.length > 0
+                  ? `${issueRows.length} source exception${issueRows.length === 1 ? "" : "s"} shown first`
+                  : `${comparisons.length} managed source row${comparisons.length === 1 ? "" : "s"} matched`}
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-oa-stone-300">
+              Expected source value vs current InstantDB row content
+            </span>
+          </div>
+          <div className="overflow-hidden rounded-[16px] border border-oa-stone-200">
+            {visibleComparisons.map((row) => (
+              <ComparisonRow key={row.slug} row={row} />
+            ))}
+          </div>
         </div>
-        <div className="overflow-hidden rounded-[16px] border border-oa-stone-200">
-          {comparisons.map((row) => (
-            <ComparisonRow key={row.slug} row={row} />
-          ))}
-        </div>
-      </div>
+      </details>
     </section>
   );
 }
