@@ -15,6 +15,7 @@ Review target: `/calendar` strategic calendar grid.
 - The far-left row-header column must stay visible during horizontal scrolling. This applies to the `Date` header, section headers, parent rows, normal row labels, and Rock event row labels.
 - The sticky row-header column needs a stronger right boundary so users can tell the labels are pinned above the horizontally scrolling week cells.
 - The top toolbar must sit above sticky grid layers and wrap gracefully when the viewport is narrower.
+- Rock event pills must truncate inside the week cell and never expand the grid column or bleed into neighboring weeks. Hover-card action links should wrap inside the card.
 
 ## Findings
 
