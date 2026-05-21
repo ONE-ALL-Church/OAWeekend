@@ -35,6 +35,8 @@ The calendar prefill writes source-of-truth rows only. These rows are not editab
 - People: hosts, worship leaders, and all active team assignments by role
 - Times: all plan times plus filtered service-time labels
 
+`apps/web/lib/calendar-source-snapshot.ts` reads the current stored calendar source rows for a week from InstantDB so the wrapper can compare upstream source data against what the calendar is currently using.
+
 ## Auth And Write Boundaries
 
 Calendar pages, Planning Center pages, and calendar write APIs are protected by `apps/web/proxy.ts`.
@@ -51,11 +53,10 @@ The current practical slice turns the read-only drill-down into the start of a w
 
 - `/planning-center` lists a rolling weekend window outside the calendar.
 - `/planning-center?q=...` searches by exact week/date, numeric Planning Center plan id, or Planning Center plan URL.
-- `/planning-center/week/[weekStart]` uses campus tabs and item-level panels for service order, songs, notes, people, and times.
+- `/planning-center/week/[weekStart]` uses campus tabs, source comparison, and item-level panels for service order, songs, notes, people, and times.
 - Add Planning Center deep links at every level.
 - Keep OA Weekend writes separate from Planning Center writes until there is an explicit edit workflow and audit trail.
 
 ## Remaining Wrapper Direction
 
-- Add compare/diff views between Rock, Planning Center, and existing calendar source rows.
 - Add audit trails before any Planning Center write-back is considered.
