@@ -21,7 +21,7 @@ export function CalendarSectionHeader({
 }: CalendarSectionHeaderProps) {
   return (
     <div
-      className="col-span-full flex items-center gap-2.5 px-4 py-2.5 cursor-pointer hover:bg-oa-sand-100/10 transition-colors duration-[220ms] border-b border-oa-stone-200"
+      className="sticky left-0 z-20 col-span-full flex items-center gap-2.5 border-b border-oa-stone-200 bg-oa-white/95 px-4 py-2.5 shadow-[10px_0_18px_-18px_rgba(39,39,40,0.55)] transition-colors duration-[220ms] hover:bg-oa-sand-100/20 cursor-pointer"
       onClick={onToggle}
     >
       <div

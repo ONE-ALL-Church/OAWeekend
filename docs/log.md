@@ -40,3 +40,9 @@ Format:
 - Touched: [Planning Center Wrapper](planning-center-wrapper.md), [System Map](reference/system-map.md), [Integration Inventory](reference/integration-inventory.md), [Phase Roadmap](phase-roadmap.md), this file
 - Notes: Added a read-only comparison panel to `/planning-center/week/[weekStart]` that compares expected Rock/Planning Center source values against the current stored InstantDB calendar source rows. The panel surfaces matched, review, and missing states for system-managed rows without adding any write path.
 - Validation: `git diff --check`, docs markdown link check, `PATH=/usr/local/bin:$PATH pnpm --filter web lint` (existing warnings only), `PATH=/usr/local/bin:$PATH pnpm --filter web build`, and `PATH=/usr/local/bin:$PATH pnpm test`. Local HTTP smoke returned `HTTP 200` for `/planning-center/week/2026-05-23` and rendered Source comparison, Managed Row Diff, Empty managed rows, and San Dimas songs content.
+
+## [2026-05-21] ingest | Calendar grid UI UX review
+
+- Touched: [Calendar UI UX Review](explanation/calendar-ui-ux-review.md), this file
+- Notes: Reviewed `/calendar` after browser feedback that the far-left `Date` column scrolled away. Implemented sticky row-header behavior for the month/date headers, section headers, parent rows, normal row labels, and Rock event row labels. Raised the toolbar above grid sticky layers and improved toolbar wrapping for narrower viewports.
+- Validation: `git diff --check`, docs markdown link check, `PATH=/usr/local/bin:$PATH pnpm --filter web lint` (existing warnings only), `PATH=/usr/local/bin:$PATH pnpm --filter web build`, and `PATH=/usr/local/bin:$PATH pnpm test`. Local HTTP smoke returned `HTTP 200` for `/calendar`; fully populated local grid render requires real InstantDB auth, so sticky behavior was verified by code-level class audit and production build/type checks.

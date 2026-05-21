@@ -41,15 +41,15 @@ export function CalendarToolbar({
   };
 
   return (
-    <div className="flex items-center gap-3 px-6 py-4 border-b border-oa-stone-200 bg-oa-white sticky top-0 z-10">
-      <h1 className="text-xl font-bold tracking-tight text-oa-black-900">
+    <div className="sticky top-0 z-50 flex flex-wrap items-center gap-3 border-b border-oa-stone-200 bg-oa-white/95 px-4 py-3 shadow-[0_1px_0_rgba(39,39,40,0.04)] backdrop-blur sm:px-6 sm:py-4">
+      <h1 className="min-w-fit text-xl font-bold tracking-tight text-oa-black-900">
         Strategic Calendar
       </h1>
 
-      <div className="flex-1" />
+      <div className="hidden flex-1 lg:block" />
 
       {/* Jump to month/year */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <select
           value={anchorMonth}
           onChange={(e) => onAnchorChange(anchorYear, Number(e.target.value))}
@@ -84,7 +84,7 @@ export function CalendarToolbar({
       <select
         value={campus}
         onChange={(e) => onCampusChange(e.target.value)}
-        className="px-3 py-1.5 rounded-[--radius-input] border border-oa-stone-200 text-sm bg-oa-white text-oa-black-900 focus-visible:outline-2 focus-visible:outline-oa-yellow-500 focus-visible:outline-offset-2"
+        className="min-w-[180px] px-3 py-1.5 rounded-[--radius-input] border border-oa-stone-200 text-sm bg-oa-white text-oa-black-900 focus-visible:outline-2 focus-visible:outline-oa-yellow-500 focus-visible:outline-offset-2"
       >
         <option value="">All Campuses</option>
         {campuses.map((c) => (
