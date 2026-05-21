@@ -336,7 +336,7 @@ function CampusPlanCard({
               </h3>
             </div>
             <span className="rounded-full border border-oa-stone-200 bg-oa-white px-3 py-1 text-xs font-bold text-oa-stone-300">
-              {plan.serviceItems.length} items
+              {formatServiceOrderCount(plan.serviceItems)}
             </span>
           </div>
           <div className="space-y-2.5">
@@ -650,8 +650,12 @@ function ServiceOrderSections({
           />
         ) : (
           <div key={`service-items-${index}`} className="space-y-2.5">
-            {section.items.map((item) => (
-              <ServiceItemPanel key={item.id} item={item} />
+            {section.items.map(({ item, displaySequence }) => (
+              <ServiceItemPanel
+                key={item.id}
+                item={item}
+                displaySequence={displaySequence}
+              />
             ))}
           </div>
         ),
@@ -665,7 +669,7 @@ function ServiceHeaderSection({
   items,
 }: {
   header: PlanningCenterServiceItem;
-  items: PlanningCenterServiceItem[];
+  items: ServiceItemDisplayEntry[];
 }) {
   return (
     <details
@@ -689,8 +693,12 @@ function ServiceHeaderSection({
       </summary>
       {items.length > 0 ? (
         <div className="space-y-2.5 border-t border-oa-stone-200/60 bg-oa-white/45 px-4 py-3">
-          {items.map((item) => (
-            <ServiceItemPanel key={item.id} item={item} />
+          {items.map(({ item, displaySequence }) => (
+            <ServiceItemPanel
+              key={item.id}
+              item={item}
+              displaySequence={displaySequence}
+            />
           ))}
         </div>
       ) : null}
@@ -698,15 +706,21 @@ function ServiceHeaderSection({
   );
 }
 
+interface ServiceItemDisplayEntry {
+  item: PlanningCenterServiceItem;
+  displaySequence: number;
+}
+
 function groupServiceItemsByHeader(items: PlanningCenterServiceItem[]) {
   const sections: Array<{
     header: PlanningCenterServiceItem | null;
-    items: PlanningCenterServiceItem[];
+    items: ServiceItemDisplayEntry[];
   }> = [];
   let currentSection: {
     header: PlanningCenterServiceItem | null;
-    items: PlanningCenterServiceItem[];
+    items: ServiceItemDisplayEntry[];
   } | null = null;
+  let displaySequence = 1;
 
   for (const item of items) {
     if (item.itemType === "header") {
@@ -720,13 +734,23 @@ function groupServiceItemsByHeader(items: PlanningCenterServiceItem[]) {
       sections.push(currentSection);
     }
 
-    currentSection.items.push(item);
+    currentSection.items.push({
+      item,
+      displaySequence,
+    });
+    displaySequence += 1;
   }
 
   return sections;
 }
 
-function ServiceItemPanel({ item }: { item: PlanningCenterServiceItem }) {
+function ServiceItemPanel({
+  item,
+  displaySequence,
+}: {
+  item: PlanningCenterServiceItem;
+  displaySequence: number;
+}) {
   const isSong = item.itemType === "song";
 
   return (
@@ -739,7 +763,7 @@ function ServiceItemPanel({ item }: { item: PlanningCenterServiceItem }) {
     >
       <summary className="grid cursor-pointer list-none gap-3 md:grid-cols-[48px_minmax(0,1fr)_auto] [&::-webkit-details-marker]:hidden">
         <div className="flex h-10 w-10 items-center justify-center rounded-full border border-oa-stone-200 bg-oa-white text-xs font-black text-oa-stone-300">
-          {item.sequence != null ? String(item.sequence).padStart(2, "0") : "--"}
+          {String(displaySequence).padStart(2, "0")}
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -894,6 +918,18 @@ function formatServiceTimesSummary(serviceTimes: string[]) {
   if (serviceTimes.length === 0) return "Not set";
   if (serviceTimes.length <= 2) return serviceTimes.join(", ");
   return `${serviceTimes.slice(0, 2).join(", ")} + ${serviceTimes.length - 2} more`;
+}
+
+function formatServiceOrderCount(items: PlanningCenterServiceItem[]) {
+  const serviceItemCount = items.filter((item) => item.itemType !== "header")
+    .length;
+  const headerCount = items.length - serviceItemCount;
+
+  if (headerCount === 0) {
+    return `${serviceItemCount} item${serviceItemCount === 1 ? "" : "s"}`;
+  }
+
+  return `${serviceItemCount} item${serviceItemCount === 1 ? "" : "s"} / ${headerCount} section${headerCount === 1 ? "" : "s"}`;
 }
 
 function shiftWeek(weekStart: string, days: number) {
