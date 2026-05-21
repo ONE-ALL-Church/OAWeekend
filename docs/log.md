@@ -22,3 +22,9 @@ Format:
 
 - Touched: [index.md](index.md), [wiki-schema.md](wiki-schema.md), [Agent Quickstart](agents/start-here.md), [System Map](reference/system-map.md), [Integration Inventory](reference/integration-inventory.md), [ADR-0001](decisions/ADR-0001-docs-vault-as-work-log.md), this file
 - Notes: Converted `docs/` into the git-tracked Obsidian vault for OAWeekend, mirroring the RockProduction pattern: Dataview/Templater enabled, root index, schema, append-only log, reference inventory, and agent quickstart. Established that future material work must update docs and append log entries with validation and deploy evidence. Obsidian CLI caveat: multiple known vaults on this machine are named `docs`, so agents must verify the active vault path before CLI writes.
+
+## [2026-05-21] ingest | Planning Center wrapper entry point
+
+- Touched: [Planning Center Wrapper](planning-center-wrapper.md), [System Map](reference/system-map.md), [Integration Inventory](reference/integration-inventory.md), [Phase Roadmap](phase-roadmap.md), this file
+- Notes: Added `/planning-center` as the protected wrapper landing page with a rolling weekend selector outside the calendar. Updated `/planning-center/week/[weekStart]` to use campus tabs, previous/next wrapper navigation, item-level service order panels, richer song metadata, and Planning Center person/item deep links while preserving read-only source data boundaries.
+- Validation: `git diff --check`, docs markdown link check, `PATH=/usr/local/bin:$PATH pnpm --filter web lint` (existing warnings only), `PATH=/usr/local/bin:$PATH pnpm --filter web build`, and `PATH=/usr/local/bin:$PATH pnpm test`. Local Chrome smoke rendered `/planning-center`, loaded `/planning-center/week/2026-05-23`, and expanded a song item panel with description, notes, metadata, and Planning Center item link.
