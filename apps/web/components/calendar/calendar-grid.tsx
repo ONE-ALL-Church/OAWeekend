@@ -103,6 +103,10 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
   }, [weeks]);
 
   const gridCols = `180px repeat(${weeks.length}, minmax(140px, 1fr))`;
+  const stickyLabelClass =
+    "sticky left-0 z-20 bg-oa-white shadow-[10px_0_18px_-18px_rgba(39,39,40,0.55)]";
+  const stickyHeaderLabelClass =
+    "sticky left-0 z-30 bg-oa-white shadow-[10px_0_18px_-18px_rgba(39,39,40,0.55)]";
 
   // Scroll buttons
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -175,14 +179,14 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
 
       <div ref={mergedRef} className="overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-oa-stone-100/50 [&::-webkit-scrollbar-thumb]:bg-oa-stone-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-oa-stone-300">
         <div
-          className="grid"
+          className="isolate grid"
           style={{
             gridTemplateColumns: gridCols,
             minWidth: `${180 + weeks.length * 140}px`,
           }}
         >
           {/* Month header row */}
-          <div className="bg-oa-white border-b border-oa-stone-200" />
+          <div className={`${stickyHeaderLabelClass} border-b border-r border-oa-stone-200`} />
           {monthSpans.map((span, i) => (
             <div
               key={i}
@@ -194,7 +198,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
           ))}
 
           {/* Week header row */}
-          <div className="bg-oa-white border-b-2 border-oa-stone-200 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-oa-stone-300">
+          <div className={`${stickyHeaderLabelClass} border-b-2 border-r border-oa-stone-200 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-oa-stone-300`}>
             Date
           </div>
           {weeks.map((week) => {
@@ -249,6 +253,7 @@ export const CalendarGrid = forwardRef<HTMLDivElement, CalendarGridProps>(functi
                 eventsByWeek={isEventsSection ? eventsByWeek : undefined}
                 eventsLoading={isEventsSection ? eventsLoading : undefined}
                 seriesTintByWeek={seriesTintByWeek}
+                stickyLabelClass={stickyLabelClass}
               />
             );
           })}
@@ -285,6 +290,7 @@ function SectionBlock({
   eventsByWeek,
   eventsLoading,
   seriesTintByWeek,
+  stickyLabelClass,
 }: {
   section: CalendarSectionWithRows;
   rows: CalendarRow[];
@@ -297,6 +303,7 @@ function SectionBlock({
   eventsByWeek?: Map<string, CategorizedWeekEvents>;
   eventsLoading?: boolean;
   seriesTintByWeek?: Map<string, string>;
+  stickyLabelClass: string;
 }) {
   // Split rows: event rows are auto-populated from Rock, campaign rows stay manual
   const eventRowSlugs = new Set([
@@ -341,6 +348,7 @@ function SectionBlock({
                 isLoading={eventsLoading ?? false}
                 isLastRow={manualRows.length === 0 && idx === eventRows.length - 1}
                 seriesTintByWeek={seriesTintByWeek}
+                stickyLabelClass={stickyLabelClass}
               />
             ))}
 
@@ -390,6 +398,7 @@ function SectionBlock({
                       isSubRow={true}
                       onCellClick={onCellClick}
                       seriesTintByWeek={seriesTintByWeek}
+                      stickyLabelClass={stickyLabelClass}
                     />,
                   );
                 });
@@ -410,6 +419,7 @@ function SectionBlock({
                     isSubRow={false}
                     onCellClick={onCellClick}
                     seriesTintByWeek={seriesTintByWeek}
+                    stickyLabelClass={stickyLabelClass}
                   />,
                 );
               }
@@ -431,6 +441,7 @@ function RowBlock({
   isSubRow,
   onCellClick,
   seriesTintByWeek,
+  stickyLabelClass,
 }: {
   row: CalendarRow;
   weeks: CalendarWeekWithEntries[];
@@ -440,6 +451,7 @@ function RowBlock({
   isSubRow: boolean;
   onCellClick: (cell: EditingCell) => void;
   seriesTintByWeek?: Map<string, string>;
+  stickyLabelClass: string;
 }) {
   const borderClass = isLastRow
     ? "border-b-2 border-b-oa-stone-200"
@@ -453,7 +465,7 @@ function RowBlock({
     <>
       {/* Row label */}
       <div
-        className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center ${
+        className={`${stickyLabelClass} px-4 py-2 text-xs font-medium text-oa-black-900 ${borderClass} border-r border-r-oa-stone-200/70 flex items-center ${
           isSubRow ? "pl-8 text-oa-black-700" : ""
         }`}
       >
@@ -515,7 +527,7 @@ function ParentRowHeader({
   return (
     <>
       <div
-        className={`px-4 py-2 text-xs font-bold text-oa-black-900 bg-oa-sand-100/20 ${borderClass} border-r border-r-oa-stone-200/30 flex items-center gap-1.5`}
+        className={`sticky left-0 z-20 px-4 py-2 text-xs font-bold text-oa-black-900 bg-[#fbf6ee] ${borderClass} border-r border-r-oa-stone-200/70 shadow-[10px_0_18px_-18px_rgba(39,39,40,0.55)] flex items-center gap-1.5`}
       >
         <span>{name}</span>
         <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#00A4C7]/12 text-[8px] font-bold text-[#00A4C7]" title="Synced from Planning Center">
@@ -548,6 +560,7 @@ function RockEventsRow({
   isLoading,
   isLastRow,
   seriesTintByWeek,
+  stickyLabelClass,
 }: {
   label: string;
   category: keyof CategorizedWeekEvents;
@@ -556,6 +569,7 @@ function RockEventsRow({
   isLoading: boolean;
   isLastRow: boolean;
   seriesTintByWeek?: Map<string, string>;
+  stickyLabelClass: string;
 }) {
   const borderClass = isLastRow
     ? "border-b-2 border-b-oa-stone-200"
@@ -565,7 +579,7 @@ function RockEventsRow({
     <>
       {/* Row label */}
       <div
-        className={`px-4 py-2 text-xs font-medium text-oa-black-900 bg-oa-white ${borderClass} border-r border-r-oa-stone-200/30 flex items-center gap-1.5`}
+        className={`${stickyLabelClass} px-4 py-2 text-xs font-medium text-oa-black-900 ${borderClass} border-r border-r-oa-stone-200/70 flex items-center gap-1.5`}
       >
         <span>{label}</span>
         <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#6873B3]/12 text-[8px] font-bold text-[#6873B3]">

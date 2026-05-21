@@ -12,6 +12,7 @@ Architecture, rationale, and project-shaping notes belong here.
 
 ## Current explanation pages
 
+- [Calendar UI UX Review](calendar-ui-ux-review.md)
 - [Phase Roadmap](../phase-roadmap.md)
 
 ## Standard

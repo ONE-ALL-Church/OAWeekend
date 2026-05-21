@@ -60,6 +60,7 @@ SORT file.folder ASC, file.name ASC
 
 ### Explanation
 - [Phase Roadmap](phase-roadmap.md) - current and future project phases.
+- [Calendar UI UX Review](explanation/calendar-ui-ux-review.md) - calendar grid review findings and follow-up recommendations.
 - [Explanation Index](explanation/README.md) - architecture and rationale pages.
 
 ### Decisions
