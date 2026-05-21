@@ -69,9 +69,7 @@ export async function GET(request: Request) {
     }
 
     // Prefill each week from PCO + Rock
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
+    const baseUrl = new URL(request.url).origin;
 
     const results = await Promise.all(
       weekStarts.map(async (ws) => {
@@ -83,10 +81,30 @@ export async function GET(request: Request) {
               headers: { authorization: `Bearer ${cronSecret}` },
             },
           );
-          const data = await res.json();
-          return { week: ws, written: data.written ?? [], ok: true };
-        } catch {
-          return { week: ws, written: [], ok: false };
+          const body = await res.text();
+          const data = body ? JSON.parse(body) : {};
+          if (!res.ok) {
+            return {
+              week: ws,
+              written: [],
+              ok: false,
+              status: res.status,
+              error: data.error ?? body.slice(0, 200),
+            };
+          }
+          return {
+            week: ws,
+            written: data.written ?? [],
+            ok: true,
+            status: res.status,
+          };
+        } catch (error) {
+          return {
+            week: ws,
+            written: [],
+            ok: false,
+            error: error instanceof Error ? error.message : "Unknown sync error",
+          };
         }
       }),
     );
