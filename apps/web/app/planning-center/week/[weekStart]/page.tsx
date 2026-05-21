@@ -71,8 +71,8 @@ export default async function PlanningCenterWeekPage({
 
   return (
     <main className="min-h-screen bg-[#f7f3ea] text-oa-black-900">
-      <div className="border-b border-oa-stone-200/70 bg-[#fffaf0]/95 px-6 py-5 shadow-sm">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="border-b border-oa-stone-200/70 bg-[#fffaf0]/95 px-6 py-4 shadow-sm">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-oa-stone-300">
               <Link href="/calendar" className="hover:text-oa-black-700">
@@ -94,12 +94,12 @@ export default async function PlanningCenterWeekPage({
               </Link>
             </div>
             <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
-              Planning Center Source Data
+              Weekend Service Plan
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-oa-black-700">
-              Read-only weekend plan data pulled from Planning Center Services.
-              Songs use San Dimas as the calendar source of truth; hosts and
-              worship leaders stay campus-specific.
+              A read-only Planning Center workspace for {formatWeekDate(weekStart)}.
+              Campus service order stays primary; source health, teams, and
+              calendar-managed rows stay visible without taking over the page.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -131,7 +131,7 @@ export default async function PlanningCenterWeekPage({
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 py-6">
+      <div className="mx-auto max-w-7xl px-6 py-6">
         {error ? (
           <div className="rounded-[--radius-card] border border-[#f0b4ab] bg-[#fff1ef] px-5 py-4 text-sm text-[#9f1f13]">
             {error}
@@ -156,21 +156,14 @@ export default async function PlanningCenterWeekPage({
           />
         </section>
 
-        <SourceComparisonPanel
-          rockSermon={rockSermon}
-          rockError={rockError}
-          planningCenter={planningCenter}
-          planningCenterError={error}
-          calendarSnapshot={calendarSnapshot}
-          calendarError={calendarError}
-        />
-
         {campusPlans.length > 0 ? (
-          <CampusTabs
-            campusPlans={campusPlans}
-            activeCampusName={activeCampus?.campusName ?? null}
-            weekStart={weekStart}
-          />
+          <div className="sticky top-0 z-20 -mx-6 mb-5 border-y border-oa-stone-200/70 bg-[#f7f3ea]/95 px-6 py-3 backdrop-blur">
+            <CampusTabs
+              campusPlans={campusPlans}
+              activeCampusName={activeCampus?.campusName ?? null}
+              weekStart={weekStart}
+            />
+          </div>
         ) : null}
 
         <section className="mt-5 space-y-5">
@@ -192,6 +185,15 @@ export default async function PlanningCenterWeekPage({
             </div>
           )}
         </section>
+
+        <SourceComparisonPanel
+          rockSermon={rockSermon}
+          rockError={rockError}
+          planningCenter={planningCenter}
+          planningCenterError={error}
+          calendarSnapshot={calendarSnapshot}
+          calendarError={calendarError}
+        />
       </div>
     </main>
   );
@@ -218,7 +220,7 @@ function CampusTabs({
             key={campusName}
             href={`/planning-center/week/${weekStart}?campus=${slugifyCampus(campusName)}`}
             aria-current={isActive ? "page" : undefined}
-            className={`min-w-[180px] rounded-[14px] border px-4 py-3 text-left transition-colors duration-[220ms] ${
+            className={`min-w-[220px] rounded-[14px] border px-4 py-3 text-left transition-colors duration-[220ms] ${
               isActive
                 ? "border-oa-black-900 bg-oa-black-900 text-oa-white"
                 : "border-oa-stone-200 bg-[#fffdf8] text-oa-black-900 hover:bg-oa-sand-100/45"
@@ -280,7 +282,7 @@ function CampusPlanCard({
   return (
     <article className="overflow-hidden rounded-[--radius-card] border border-oa-stone-200 bg-oa-white shadow-[--shadow-card]">
       <div className="border-b border-oa-stone-200/60 bg-[#fffaf0] px-5 py-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-2xl font-black tracking-tight">
@@ -299,7 +301,7 @@ function CampusPlanCard({
             href={plan.planUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-[--radius-button] bg-oa-black-900 px-4 py-2 text-sm font-semibold text-oa-white hover:bg-oa-black-700"
+            className="self-start rounded-[--radius-button] bg-oa-black-900 px-4 py-2 text-sm font-semibold text-oa-white hover:bg-oa-black-700"
           >
             Open in Planning Center
           </a>
@@ -313,7 +315,7 @@ function CampusPlanCard({
           />
           <Metric
             label="Service times"
-            value={plan.serviceTimes.join(", ") || "Not set"}
+            value={formatServiceTimesSummary(plan.serviceTimes)}
           />
           <Metric
             label="All plan times"
@@ -322,8 +324,38 @@ function CampusPlanCard({
         </div>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[280px_1fr]">
-        <aside className="border-b border-oa-stone-200/60 px-5 py-5 lg:border-b-0 lg:border-r">
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="px-5 py-5">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-oa-stone-300">
+                Primary workspace
+              </div>
+              <h3 className="mt-1 text-xl font-black tracking-tight">
+                Service Order
+              </h3>
+            </div>
+            <span className="rounded-full border border-oa-stone-200 bg-oa-white px-3 py-1 text-xs font-bold text-oa-stone-300">
+              {plan.serviceItems.length} items
+            </span>
+          </div>
+          <div className="space-y-2.5">
+            {plan.serviceItems.map((item) => (
+              <ServiceItemPanel key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+
+        <aside className="border-t border-oa-stone-200/60 bg-[#fffaf0]/70 px-5 py-5 lg:border-l lg:border-t-0">
+          <div className="mb-4">
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-oa-stone-300">
+              Campus sources
+            </div>
+            <p className="mt-1 text-sm leading-6 text-oa-black-700">
+              Source-of-truth data from Planning Center. These values are not
+              editable in this interface.
+            </p>
+          </div>
           <PeopleBlock title="Hosts" people={plan.hosts} />
           <div className="mt-5">
             <PeopleBlock
@@ -332,29 +364,15 @@ function CampusPlanCard({
             />
           </div>
           <div className="mt-5">
+            <SongsBlock songs={plan.songs} fallbackUrl={plan.planUrl} />
+          </div>
+          <div className="mt-5">
             <PlanTimesBlock times={plan.planTimes} />
           </div>
           <div className="mt-5">
             <TeamAssignmentsBlock assignments={plan.teamMembers} />
           </div>
-          <div className="mt-5">
-            <SongsBlock songs={plan.songs} fallbackUrl={plan.planUrl} />
-          </div>
         </aside>
-
-        <div className="px-5 py-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-black tracking-tight">Service Order</h3>
-            <span className="text-xs font-semibold text-oa-stone-300">
-              {plan.serviceItems.length} items
-            </span>
-          </div>
-          <div className="space-y-2">
-            {plan.serviceItems.map((item) => (
-              <ServiceItemPanel key={item.id} item={item} />
-            ))}
-          </div>
-        </div>
       </div>
     </article>
   );
@@ -404,10 +422,18 @@ function PeopleBlock({
 
 function PlanTimesBlock({ times }: { times: PlanningCenterPlanTimeSummary[] }) {
   return (
-    <div>
-      <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-oa-stone-300">
-        Plan Times
-      </div>
+    <details className="group rounded-[14px] border border-oa-stone-200 bg-oa-white px-3 py-2">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-oa-stone-300">
+          Plan Times
+        </span>
+        <span className="flex items-center gap-2 text-[11px] font-bold text-oa-stone-300">
+          {times.length} time{times.length === 1 ? "" : "s"}
+          <span className="text-oa-black-700 transition-transform duration-[220ms] group-open:rotate-90">
+            →
+          </span>
+        </span>
+      </summary>
       <div className="mt-2 space-y-1.5">
         {times.length > 0 ? (
           times.map((time, index) => (
@@ -428,7 +454,7 @@ function PlanTimesBlock({ times }: { times: PlanningCenterPlanTimeSummary[] }) {
           <span className="text-sm text-oa-stone-300">No times found</span>
         )}
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -437,18 +463,46 @@ function TeamAssignmentsBlock({
 }: {
   assignments: PlanningCenterTeamAssignment[];
 }) {
+  const groups = groupTeamAssignments(assignments);
+
   return (
-    <div>
-      <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-oa-stone-300">
-        Team Assignments
-      </div>
+    <details className="group rounded-[14px] border border-oa-stone-200 bg-oa-white px-3 py-2">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-oa-stone-300">
+          Team Assignments
+        </span>
+        <span className="flex items-center gap-2 text-[11px] font-bold text-oa-stone-300">
+          {assignments.length} people
+          <span className="text-oa-black-700 transition-transform duration-[220ms] group-open:rotate-90">
+            →
+          </span>
+        </span>
+      </summary>
       <div className="mt-2 space-y-1.5">
-        {assignments.length > 0 ? (
-          assignments.map((assignment) => (
-            <TeamAssignmentCard
-              key={`${assignment.role ?? "role"}-${assignment.name}`}
-              assignment={assignment}
-            />
+        {groups.length > 0 ? (
+          groups.map(({ role, members }) => (
+            <details
+              key={role}
+              className="rounded-[12px] border border-oa-stone-200 bg-oa-white px-3 py-2 open:bg-[#fffdf8]"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+                <span className="text-xs font-black text-oa-black-900">
+                  {role}
+                </span>
+                <span className="flex items-center gap-2 text-[11px] font-bold text-oa-stone-300">
+                  {members.length}
+                  <span className="text-oa-black-700">→</span>
+                </span>
+              </summary>
+              <div className="mt-2 space-y-1.5 border-t border-oa-stone-200/60 pt-2">
+                {members.map((assignment) => (
+                  <TeamAssignmentCard
+                    key={`${assignment.role ?? "role"}-${assignment.name}`}
+                    assignment={assignment}
+                  />
+                ))}
+              </div>
+            </details>
           ))
         ) : (
           <span className="text-sm text-oa-stone-300">
@@ -456,8 +510,24 @@ function TeamAssignmentsBlock({
           </span>
         )}
       </div>
-    </div>
+    </details>
   );
+}
+
+function groupTeamAssignments(assignments: PlanningCenterTeamAssignment[]) {
+  const groups = new Map<string, PlanningCenterTeamAssignment[]>();
+
+  for (const assignment of assignments) {
+    const role = assignment.role ?? "Unassigned role";
+    const members = groups.get(role) ?? [];
+    members.push(assignment);
+    groups.set(role, members);
+  }
+
+  return Array.from(groups.entries()).map(([role, members]) => ({
+    role,
+    members,
+  }));
 }
 
 function TeamAssignmentCard({
@@ -475,7 +545,7 @@ function TeamAssignmentCard({
     </>
   );
   const className =
-    "block rounded-[12px] border border-oa-stone-200 bg-oa-white px-3 py-2 text-xs";
+    "block rounded-[10px] border border-oa-stone-200 bg-oa-white px-3 py-2 text-xs";
 
   if (!personUrl) {
     return <div className={className}>{content}</div>;
@@ -565,17 +635,23 @@ function SongsBlock({
 }
 
 function ServiceItemPanel({ item }: { item: PlanningCenterServiceItem }) {
+  const isSong = item.itemType === "song";
+
   return (
     <details
-      className="group rounded-[16px] border border-oa-stone-200 bg-[#fffdf8] px-4 py-3 open:bg-oa-white"
+      className={`group rounded-[18px] border bg-[#fffdf8] px-4 py-3 transition-colors duration-[220ms] open:bg-oa-white ${
+        isSong
+          ? "border-oa-yellow-500/35 shadow-[inset_4px_0_0_rgba(250,204,21,0.5)]"
+          : "border-oa-stone-200 hover:border-oa-stone-300"
+      }`}
     >
-      <summary className="grid cursor-pointer list-none gap-3 md:grid-cols-[56px_1fr_auto] [&::-webkit-details-marker]:hidden">
-        <div className="text-xs font-black text-oa-stone-300">
+      <summary className="grid cursor-pointer list-none gap-3 md:grid-cols-[48px_minmax(0,1fr)_auto] [&::-webkit-details-marker]:hidden">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-oa-stone-200 bg-oa-white text-xs font-black text-oa-stone-300">
           {item.sequence != null ? String(item.sequence).padStart(2, "0") : "--"}
         </div>
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-black">
+            <span className="text-base font-black leading-6 text-oa-black-900">
               {item.title || "Untitled"}
             </span>
             {item.itemType ? (
@@ -602,7 +678,9 @@ function ServiceItemPanel({ item }: { item: PlanningCenterServiceItem }) {
           </div>
         </div>
         <div className="flex items-start justify-between gap-3 text-xs font-semibold text-oa-stone-300 md:justify-end">
-          <span>{formatDuration(item.lengthSeconds)}</span>
+          <span className="rounded-full border border-oa-stone-200 bg-oa-white px-2.5 py-1 text-oa-black-700">
+            {formatDuration(item.lengthSeconds)}
+          </span>
           <span className="text-oa-black-700 transition-transform duration-[220ms] group-open:rotate-90">
             →
           </span>
@@ -725,6 +803,12 @@ function formatDuration(seconds: number | null | undefined) {
   return remainingSeconds > 0
     ? `${minutes}m ${remainingSeconds}s`
     : `${minutes}m`;
+}
+
+function formatServiceTimesSummary(serviceTimes: string[]) {
+  if (serviceTimes.length === 0) return "Not set";
+  if (serviceTimes.length <= 2) return serviceTimes.join(", ");
+  return `${serviceTimes.slice(0, 2).join(", ")} + ${serviceTimes.length - 2} more`;
 }
 
 function shiftWeek(weekStart: string, days: number) {
